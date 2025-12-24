@@ -83,6 +83,10 @@ web_modules/
 .cache
 .parcel-cache
 
+# Build directories
+build/
+dist/
+
 # Next.js build output
 .next
 out
@@ -133,7 +137,12 @@ dist
 .angular/
 
 # System Files
+.DS_Store
 .DS_Store/
+
+# IDE
+.vscode/
+.idea/
 
 ### Java ###
 # Compiled class file

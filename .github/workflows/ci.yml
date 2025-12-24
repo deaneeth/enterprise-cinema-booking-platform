@@ -1,0 +1,4 @@
+# ci.yml (Member 1 sets up)
+# Continuous Integration workflow - Automates testing and building
+# Runs automated tests, linting, and builds on every push and pull request
+# This workflow ensures code quality and prevents breaking changes

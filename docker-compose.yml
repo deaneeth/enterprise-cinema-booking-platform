@@ -1,0 +1,4 @@
+# docker-compose.yml (Member 1 creates)
+# Docker Compose configuration - Orchestrates all application services
+# Defines and configures frontend, backend, database, and other services
+# Used to run the entire application stack with a single command
