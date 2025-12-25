@@ -6,9 +6,11 @@
 version: '3.8'
 
 services:
+  # MongoDB Database
   mongodb:
     image: mongo:6.0
     container_name: cinema-mongodb
+    restart: unless-stopped
     ports:
       - "27017:27017"
     environment:
@@ -18,35 +20,51 @@ services:
       - mongodb_data:/data/db
     networks:
       - cinema-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # Backend API
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: cinema-backend
+    restart: unless-stopped
     ports:
       - "5000:5000"
     environment:
       - NODE_ENV=development
       - PORT=5000
       - MONGODB_URI=mongodb://admin:password123@mongodb:27017/cinema-booking?authSource=admin
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production-12345
+      - JWT_EXPIRE=24h
+      - FRONTEND_URL=http://localhost:3000
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     volumes:
       - ./backend:/app
       - /app/node_modules
     networks:
       - cinema-network
+    command: npm run dev
 
+  # Frontend React App
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: cinema-frontend
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - REACT_APP_BACKEND_URL=http://localhost:5000
+      - REACT_APP_WEBSOCKET_URL=http://localhost:5000
+      - CHOKIDAR_USEPOLLING=true
     depends_on:
       - backend
     volumes:
@@ -54,9 +72,11 @@ services:
       - /app/node_modules
     networks:
       - cinema-network
+    command: npm start
 
 volumes:
   mongodb_data:
+    driver: local
 
 networks:
   cinema-network:
