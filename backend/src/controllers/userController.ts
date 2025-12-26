@@ -530,6 +530,171 @@ export const deactivateUser = async (
   }
 };
 
+/**
+ * Logout user
+ * POST /api/auth/logout
+ */
+export const logout = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // For stateless JWT, logout is handled client-side by removing the token
+    // If using token blacklisting, add the token to a blacklist here
+    // For now, we just return success and let the client clear the token
+
+    res.status(200).json({
+      success: true,
+      data: { message: 'Logged out successfully' },
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Server error during logout' },
+    });
+  }
+};
+
+/**
+ * Forgot password - sends reset token
+ * POST /api/auth/forgot-password
+ */
+export const forgotPassword = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Email is required' },
+      });
+      return;
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    // Always return success message (don't reveal if email exists for security)
+    if (!user) {
+      res.status(200).json({
+        success: true,
+        data: {
+          message:
+            'If an account with that email exists, a password reset link has been sent',
+        },
+      });
+      return;
+    }
+
+    // Generate reset token (random 32 byte hex string)
+    const crypto = await import('crypto');
+    const resetToken = crypto.randomBytes(32).toString('hex');
+
+    // Hash the reset token before storing
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+
+    // Set token and expiry on user document (1 hour expiry)
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpire = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await user.save({ validateBeforeSave: false });
+
+    // In production, send email with reset link
+    // For now, log the reset link to console (mock email)
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+    console.log('='.repeat(50));
+    console.log('PASSWORD RESET REQUESTED');
+    console.log(`Email: ${user.email}`);
+    console.log(`Reset URL: ${resetUrl}`);
+    console.log(`Token expires in: 1 hour`);
+    console.log('='.repeat(50));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        message:
+          'If an account with that email exists, a password reset link has been sent',
+      },
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Server error during password reset request' },
+    });
+  }
+};
+
+/**
+ * Reset password using token
+ * POST /api/auth/reset-password
+ */
+export const resetPassword = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Reset token and new password are required' },
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Password must be at least 6 characters' },
+      });
+      return;
+    }
+
+    // Hash the provided token to match stored hash
+    const crypto = await import('crypto');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find user with valid reset token
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpire: { $gt: new Date() },
+    }).select('+password');
+
+    if (!user) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid or expired reset token' },
+      });
+      return;
+    }
+
+    // Set new password (will be hashed by pre-save hook)
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        message:
+          'Password reset successful. You can now login with your new password.',
+      },
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Server error during password reset' },
+    });
+  }
+};
+
 export default {
   register,
   login,
@@ -539,4 +704,7 @@ export default {
   getAllUsers,
   getUserById,
   deactivateUser,
+  logout,
+  forgotPassword,
+  resetPassword,
 };

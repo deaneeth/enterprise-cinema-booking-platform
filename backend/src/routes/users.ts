@@ -12,6 +12,9 @@ import {
   getAllUsers,
   getUserById,
   deactivateUser,
+  logout,
+  forgotPassword,
+  resetPassword,
 } from '../controllers/userController';
 import { authenticate, requireRole } from '../middlewares/auth';
 
@@ -35,6 +38,20 @@ router.post('/auth/register', register);
  */
 router.post('/auth/login', login);
 
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Request password reset email
+ * @access  Public
+ */
+router.post('/auth/forgot-password', forgotPassword);
+
+/**
+ * @route   POST /api/auth/reset-password
+ * @desc    Reset password using token
+ * @access  Public
+ */
+router.post('/auth/reset-password', resetPassword);
+
 // ============================================
 // PROTECTED ROUTES (Authentication required)
 // ============================================
@@ -45,6 +62,13 @@ router.post('/auth/login', login);
  * @access  Private
  */
 router.get('/auth/me', authenticate, getMe);
+
+/**
+ * @route   POST /api/auth/logout
+ * @desc    Logout user (invalidate session)
+ * @access  Private
+ */
+router.post('/auth/logout', authenticate, logout);
 
 /**
  * @route   GET /api/users/:id
