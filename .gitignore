@@ -203,4 +203,13 @@ share/python-wheels/
 *.egg
 MANIFEST
 /data
+mem1.md
+mem2.md
+mem3.md
+mem4.md
+mem5.md
+mem6.md
+mem7.md
+mem8.md
 guide.md
+/.agent
