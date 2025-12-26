@@ -64,8 +64,18 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         token,
       },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Registration error:', error);
+
+    // Handle Mongoose validation errors
+    if (error instanceof Error && error.name === 'ValidationError') {
+      res.status(400).json({
+        success: false,
+        error: { message: error.message },
+      });
+      return;
+    }
+
     res.status(500).json({
       success: false,
       error: { message: 'Server error during registration' },
