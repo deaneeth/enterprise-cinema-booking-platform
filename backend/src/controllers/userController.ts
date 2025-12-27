@@ -7,6 +7,9 @@ import User from '../models/User';
 // Import to ensure Express Request type is extended with user property
 import '../middlewares/auth';
 
+// Phone number validation regex - allows optional + prefix and common phone number characters
+const PHONE_REGEX = /^\+?[\d\s-()]+$/;
+
 /**
  * Register a new user
  * POST /api/auth/register
@@ -27,7 +30,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Validate phone number format if provided
-    if (phone && !/^\+?[\d\s-()]+$/.test(phone)) {
+    if (phone && !PHONE_REGEX.test(phone)) {
       res.status(400).json({
         success: false,
         error: {
@@ -78,24 +81,15 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     console.error('Registration error:', error);
 
     // Handle Mongoose validation errors
-    if (error instanceof Error) {
-      if (error.name === 'ValidationError') {
-        res.status(400).json({
-          success: false,
-          error: { message: error.message },
-        });
-        return;
-      }
-      // Handle other known error types
-      if (error.message) {
-        res.status(500).json({
-          success: false,
-          error: { message: 'Server error during registration' },
-        });
-        return;
-      }
+    if (error instanceof Error && error.name === 'ValidationError') {
+      res.status(400).json({
+        success: false,
+        error: { message: error.message },
+      });
+      return;
     }
 
+    // Handle all other errors with a generic message
     res.status(500).json({
       success: false,
       error: { message: 'Server error during registration' },
