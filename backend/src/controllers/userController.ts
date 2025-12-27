@@ -615,6 +615,8 @@ export const forgotPassword = async (
     }
 
     // Generate reset token (random 32 byte hex string)
+    // Note: The plaintext token is needed for sending in email (production use)
+    // Only the hashed version is stored in the database for security
     const crypto = await import('crypto');
     const resetToken = crypto.randomBytes(32).toString('hex');
 

@@ -2,7 +2,7 @@ import React, { useState, FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth, RegisterData } from "../../contexts/AuthContext";
 
-// Email validation regex - must match backend pattern in User.ts
+// Email validation regex - must match backend pattern in backend/src/models/User.ts
 // Requires 2+ character TLD, allows standard email characters
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
 
