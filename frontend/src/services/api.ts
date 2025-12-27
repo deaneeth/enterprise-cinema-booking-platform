@@ -56,6 +56,16 @@ api.interceptors.request.use(
 );
 
 /**
+ * Callback function for handling 401 redirects
+ * This allows the app to provide a custom navigation handler
+ */
+let unauthorizedCallback: (() => void) | null = null;
+
+export const setUnauthorizedCallback = (callback: () => void): void => {
+  unauthorizedCallback = callback;
+};
+
+/**
  * Response interceptor
  * Handles 401 errors by clearing token and redirecting to login
  */
@@ -70,8 +80,11 @@ api.interceptors.response.use(
         // Clear token from localStorage
         localStorage.removeItem("token");
 
-        // Redirect to login page (only if not already on login page)
-        if (window.location.pathname !== "/login") {
+        // Use callback if available, otherwise fall back to window.location
+        if (unauthorizedCallback) {
+          unauthorizedCallback();
+        } else if (window.location.pathname !== "/login") {
+          // Fallback to window.location for backwards compatibility
           window.location.href = "/login";
         }
       }
@@ -114,7 +127,7 @@ export const getErrorMessage = (error: unknown): string => {
  */
 export const authApi = {
   login: (email: string, password: string) =>
-    api.post<ApiResponse>("/api/auth/login", { email, password }),
+    api.post<ApiResponse<{user: any; token: string}>>("/api/auth/login", { email, password }),
 
   register: (data: {
     email: string;
@@ -122,9 +135,9 @@ export const authApi = {
     firstName: string;
     lastName: string;
     phone?: string;
-  }) => api.post<ApiResponse>("/api/auth/register", data),
+  }) => api.post<ApiResponse<{user: any; token: string}>>("/api/auth/register", data),
 
-  getMe: () => api.get<ApiResponse>("/api/auth/me"),
+  getMe: () => api.get<ApiResponse<{user: any}>>("/api/auth/me"),
 
   logout: () => api.post<ApiResponse>("/api/auth/logout"),
 };

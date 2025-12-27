@@ -3,10 +3,15 @@
 // Handles user registration, authentication, profile updates, and account management
 
 import { Request, Response } from 'express';
-import User, { IUser } from '../models/User';
-import { generateToken } from '../utils/jwt';
+import User from '../models/User';
 // Import to ensure Express Request type is extended with user property
 import '../middlewares/auth';
+
+// Phone number validation regex - allows optional + prefix and common phone number characters
+// NOTE: This is a permissive pattern for basic validation. Consider using a dedicated
+// phone validation library (e.g., libphonenumber-js) for production use.
+// Ensures at least one digit is present
+const PHONE_REGEX = /^\+?[\d\s-()]*\d[\d\s-()]*$/;
 
 /**
  * Register a new user
@@ -22,6 +27,17 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         success: false,
         error: {
           message: 'Please provide email, password, firstName, and lastName',
+        },
+      });
+      return;
+    }
+
+    // Validate phone number format if provided
+    if (phone && !PHONE_REGEX.test(phone)) {
+      res.status(400).json({
+        success: false,
+        error: {
+          message: 'Please provide a valid phone number',
         },
       });
       return;
@@ -76,6 +92,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Handle all other errors with a generic message
     res.status(500).json({
       success: false,
       error: { message: 'Server error during registration' },
@@ -125,7 +142,17 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Compare password
-    const isMatch = await user.comparePassword(password);
+    let isMatch = false;
+    try {
+      isMatch = await user.comparePassword(password);
+    } catch (error) {
+      console.error('Password comparison error:', error);
+      res.status(500).json({
+        success: false,
+        error: { message: 'Server error during login' },
+      });
+      return;
+    }
 
     if (!isMatch) {
       res.status(401).json({
@@ -588,6 +615,8 @@ export const forgotPassword = async (
     }
 
     // Generate reset token (random 32 byte hex string)
+    // Note: The plaintext token is needed for sending in email (production use)
+    // Only the hashed version is stored in the database for security
     const crypto = await import('crypto');
     const resetToken = crypto.randomBytes(32).toString('hex');
 
@@ -602,15 +631,18 @@ export const forgotPassword = async (
     user.resetPasswordExpire = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save({ validateBeforeSave: false });
 
-    // In production, send email with reset link
-    // For now, log the reset link to console (mock email)
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
-    console.log('='.repeat(50));
-    console.log('PASSWORD RESET REQUESTED');
-    console.log(`Email: ${user.email}`);
-    console.log(`Reset URL: ${resetUrl}`);
-    console.log(`Token expires in: 1 hour`);
-    console.log('='.repeat(50));
+    // Development-only mock email logging (no sensitive token/URL in production)
+    if (process.env.NODE_ENV === 'development') {
+      // Only construct the reset URL in development mode
+      const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+      console.warn('='.repeat(50));
+      console.warn('PASSWORD RESET REQUESTED (DEV MOCK EMAIL)');
+      console.warn(`Email: ${user.email}`);
+      console.warn(`Reset URL: ${resetUrl}`);
+      console.warn('Token expires in: 1 hour');
+      console.warn('='.repeat(50));
+    }
+    // In production, send email with reset link here (not implemented yet)
 
     res.status(200).json({
       success: true,

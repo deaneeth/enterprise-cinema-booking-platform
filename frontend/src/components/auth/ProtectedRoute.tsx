@@ -1,5 +1,5 @@
 import React, { ReactNode } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, Link } from "react-router-dom";
 import { useAuth, User } from "../../contexts/AuthContext";
 
 // Role type from User interface
@@ -74,12 +74,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             <p className="text-gray-600 mb-6">
               You don't have permission to access this page.
             </p>
-            <a
-              href="/"
+            <Link
+              to="/"
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
             >
               Go to Home
-            </a>
+            </Link>
           </div>
         </div>
       );
