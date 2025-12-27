@@ -151,9 +151,8 @@ dist
 *.swo
 *~
 
-# Lock files
-package-lock.json
-yarn.lock
+# Note: package-lock.json and yarn.lock are NOT ignored
+# They are required for CI caching and reproducible builds
 
 # Docker
 .dockerignore
@@ -203,4 +202,3 @@ share/python-wheels/
 *.egg
 MANIFEST
 /data
-guide.md
