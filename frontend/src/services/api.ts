@@ -127,7 +127,7 @@ export const getErrorMessage = (error: unknown): string => {
  */
 export const authApi = {
   login: (email: string, password: string) =>
-    api.post<ApiResponse>("/api/auth/login", { email, password }),
+    api.post<ApiResponse<{user: any; token: string}>>("/api/auth/login", { email, password }),
 
   register: (data: {
     email: string;
@@ -135,9 +135,9 @@ export const authApi = {
     firstName: string;
     lastName: string;
     phone?: string;
-  }) => api.post<ApiResponse>("/api/auth/register", data),
+  }) => api.post<ApiResponse<{user: any; token: string}>>("/api/auth/register", data),
 
-  getMe: () => api.get<ApiResponse>("/api/auth/me"),
+  getMe: () => api.get<ApiResponse<{user: any}>>("/api/auth/me"),
 
   logout: () => api.post<ApiResponse>("/api/auth/logout"),
 };
