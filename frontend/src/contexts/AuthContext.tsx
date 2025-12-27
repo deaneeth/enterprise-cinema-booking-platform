@@ -15,6 +15,7 @@ export interface User {
   phone?: string;
   role: "user" | "cinema_admin" | "platform_admin";
   isActive: boolean;
+  createdAt?: string;
 }
 
 // Registration data  interface
