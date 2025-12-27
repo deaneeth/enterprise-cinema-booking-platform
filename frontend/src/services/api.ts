@@ -56,6 +56,16 @@ api.interceptors.request.use(
 );
 
 /**
+ * Callback function for handling 401 redirects
+ * This allows the app to provide a custom navigation handler
+ */
+let unauthorizedCallback: (() => void) | null = null;
+
+export const setUnauthorizedCallback = (callback: () => void): void => {
+  unauthorizedCallback = callback;
+};
+
+/**
  * Response interceptor
  * Handles 401 errors by clearing token and redirecting to login
  */
@@ -70,8 +80,11 @@ api.interceptors.response.use(
         // Clear token from localStorage
         localStorage.removeItem("token");
 
-        // Redirect to login page (only if not already on login page)
-        if (window.location.pathname !== "/login") {
+        // Use callback if available, otherwise fall back to window.location
+        if (unauthorizedCallback) {
+          unauthorizedCallback();
+        } else if (window.location.pathname !== "/login") {
+          // Fallback to window.location for backwards compatibility
           window.location.href = "/login";
         }
       }

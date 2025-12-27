@@ -4,7 +4,7 @@
 
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import User, { IUser } from '../../models/User';
+import User from '../../models/User';
 import * as jwt from 'jsonwebtoken';
 
 // MongoDB Memory Server instance

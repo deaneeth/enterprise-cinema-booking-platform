@@ -54,7 +54,7 @@ const Register: React.FC = () => {
       return "Passwords do not match";
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
     if (!emailRegex.test(formData.email)) {
       return "Please enter a valid email address";
     }

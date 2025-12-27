@@ -3,8 +3,7 @@
 // Handles user registration, authentication, profile updates, and account management
 
 import { Request, Response } from 'express';
-import User, { IUser } from '../models/User';
-import { generateToken } from '../utils/jwt';
+import User from '../models/User';
 // Import to ensure Express Request type is extended with user property
 import '../middlewares/auth';
 
@@ -22,6 +21,17 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         success: false,
         error: {
           message: 'Please provide email, password, firstName, and lastName',
+        },
+      });
+      return;
+    }
+
+    // Validate phone number format if provided
+    if (phone && !/^\+?[\d\s-()]+$/.test(phone)) {
+      res.status(400).json({
+        success: false,
+        error: {
+          message: 'Please provide a valid phone number',
         },
       });
       return;
@@ -68,12 +78,22 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     console.error('Registration error:', error);
 
     // Handle Mongoose validation errors
-    if (error instanceof Error && error.name === 'ValidationError') {
-      res.status(400).json({
-        success: false,
-        error: { message: error.message },
-      });
-      return;
+    if (error instanceof Error) {
+      if (error.name === 'ValidationError') {
+        res.status(400).json({
+          success: false,
+          error: { message: error.message },
+        });
+        return;
+      }
+      // Handle other known error types
+      if (error.message) {
+        res.status(500).json({
+          success: false,
+          error: { message: 'Server error during registration' },
+        });
+        return;
+      }
     }
 
     res.status(500).json({
@@ -603,14 +623,18 @@ export const forgotPassword = async (
     await user.save({ validateBeforeSave: false });
 
     // In production, send email with reset link
-    // For now, log the reset link to console (mock email)
+    // For now, log the reset link to console (mock email) - development only
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
-    console.log('='.repeat(50));
-    console.log('PASSWORD RESET REQUESTED');
-    console.log(`Email: ${user.email}`);
-    console.log(`Reset URL: ${resetUrl}`);
-    console.log(`Token expires in: 1 hour`);
-    console.log('='.repeat(50));
+
+    // Development-only mock email logging (no sensitive token/URL)
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('='.repeat(50));
+      console.warn('PASSWORD RESET REQUESTED (DEV MOCK EMAIL)');
+      console.warn(`Email: ${user.email}`);
+      console.warn('A password reset link would be sent to this address in production.');
+      console.warn('Token expires in: 1 hour');
+      console.warn('='.repeat(50));
+    }
 
     res.status(200).json({
       success: true,

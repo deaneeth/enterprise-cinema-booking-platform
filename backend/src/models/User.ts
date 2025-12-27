@@ -34,7 +34,7 @@ const UserSchema: Schema<IUser> = new Schema(
       lowercase: true,
       trim: true,
       match: [
-        /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
+        /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,})+$/,
         'Please enter a valid email address',
       ],
     },
@@ -111,7 +111,9 @@ UserSchema.methods.comparePassword = async function (
   try {
     return await bcrypt.compare(candidatePassword, this.password);
   } catch (error) {
-    return false;
+    // Log the error for observability and rethrow so callers can distinguish
+    console.error('Error comparing passwords for user', this._id || 'unknown', error);
+    throw error;
   }
 };
 
@@ -123,7 +125,10 @@ UserSchema.methods.generateAuthToken = function (): string {
     role: this.role,
   };
 
-  const secret = process.env.JWT_SECRET || 'fallback-secret-key';
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is not defined');
+  }
   // Parse expiry time - default to 24 hours (in seconds)
   const expiresIn = process.env.JWT_EXPIRE || '24h';
 

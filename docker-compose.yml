@@ -39,7 +39,7 @@ services:
       - NODE_ENV=development
       - PORT=5000
       - MONGODB_URI=mongodb://admin:password123@mongodb:27017/cinema-booking?authSource=admin
-      - JWT_SECRET=my-super-secret-jwt-key-is-in-production-12345
+      - JWT_SECRET=${JWT_SECRET:-development-secret-change-in-production}
       - JWT_EXPIRE=24h
       - FRONTEND_URL=http://localhost:3000
     depends_on:

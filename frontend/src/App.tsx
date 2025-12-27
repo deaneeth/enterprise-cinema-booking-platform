@@ -15,9 +15,10 @@
 // 4. Run TypeScript check: npx tsc --noEmit
 // =============================================================================
 
-import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import React, { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { setUnauthorizedCallback } from "./services/api";
 
 // Auth Components (Member 1)
 import Login from "./components/auth/Login";
@@ -39,11 +40,23 @@ import Profile from "./pages/Profile";
 // Member 8 (Reviews): import ReviewsPage from './pages/Reviews';
 // =============================================================================
 
-const App: React.FC = () => {
+/**
+ * Router component that sets up navigation callback
+ */
+const AppRouter: React.FC = () => {
+  const navigate = useNavigate();
+
+  // Set up unauthorized callback to use React Router navigation
+  useEffect(() => {
+    setUnauthorizedCallback(() => {
+      if (window.location.pathname !== "/login") {
+        navigate("/login", { replace: true });
+      }
+    });
+  }, [navigate]);
+
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
+    <Routes>
           {/* ============================================================= */}
           {/* PUBLIC ROUTES - No authentication required */}
           {/* ============================================================= */}
@@ -86,10 +99,10 @@ const App: React.FC = () => {
           {/* ============================================================= */}
 
           {/* TODO: Member 2 (Cinemas) - Add cinema admin routes */}
-          {/* <Route path="/admin/cinemas" element={<ProtectedRoute requiredRole="cinema_admin"><CinemaAdminPage /></ProtectedRoute>} /> */}
+          {/* <Route path="/admin/cinemas" element={<ProtectedRoute allowedRoles={["cinema_admin"]}><CinemaAdminPage /></ProtectedRoute>} /> */}
 
           {/* TODO: Member 4 (Showtimes) - Add showtime management routes */}
-          {/* <Route path="/admin/showtimes" element={<ProtectedRoute requiredRole="cinema_admin"><ShowtimeAdminPage /></ProtectedRoute>} /> */}
+          {/* <Route path="/admin/showtimes" element={<ProtectedRoute allowedRoles={["cinema_admin"]}><ShowtimeAdminPage /></ProtectedRoute>} /> */}
 
           {/* ============================================================= */}
           {/* DEFAULT ROUTES */}
@@ -106,17 +119,25 @@ const App: React.FC = () => {
                 <div className="text-center">
                   <h1 className="text-6xl font-bold text-gray-300">404</h1>
                   <p className="text-xl text-gray-600 mt-4">Page not found</p>
-                  <a
-                    href="/login"
+                  <Link
+                    to="/login"
                     className="mt-6 inline-block px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                   >
                     Go Home
-                  </a>
+                  </Link>
                 </div>
               </div>
             }
           />
         </Routes>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <AppRouter />
       </BrowserRouter>
     </AuthProvider>
   );

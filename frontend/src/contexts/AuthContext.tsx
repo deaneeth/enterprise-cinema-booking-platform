@@ -5,6 +5,7 @@ import React, {
   useEffect,
   ReactNode,
 } from "react";
+import { authApi, getErrorMessage } from "../services/api";
 
 // User interface
 export interface User {
@@ -70,27 +71,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return;
         }
 
-        // Fetch user data from API
-        const response = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/auth/me`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        // Fetch user data from API using axios
+        const response = await authApi.getMe();
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data.user) {
-            setCurrentUser(data.data.user);
-          } else {
-            // Invalid response, clear token
-            localStorage.removeItem("token");
-          }
+        if (response.data.success && response.data.data?.user) {
+          setCurrentUser(response.data.data.user);
         } else {
-          // Token invalid or expired, clear it
+          // Invalid response, clear token
           localStorage.removeItem("token");
         }
       } catch (error) {
@@ -109,32 +96,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    */
   const login = async (email: string, password: string): Promise<void> => {
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/auth/login`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email, password }),
-        }
-      );
+      const response = await authApi.login(email, password);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error?.message || "Login failed");
-      }
-
-      if (data.success && data.data.token && data.data.user) {
-        localStorage.setItem("token", data.data.token);
-        setCurrentUser(data.data.user);
+      if (response.data.success && response.data.data?.token && response.data.data?.user) {
+        localStorage.setItem("token", response.data.data.token);
+        setCurrentUser(response.data.data.user);
       } else {
         throw new Error("Invalid response from server");
       }
     } catch (error) {
       console.error("Login error:", error);
-      throw error;
+      throw new Error(getErrorMessage(error));
     }
   };
 
@@ -143,32 +115,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    */
   const register = async (userData: RegisterData): Promise<void> => {
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/auth/register`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(userData),
-        }
-      );
+      const response = await authApi.register(userData);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error?.message || "Registration failed");
-      }
-
-      if (data.success && data.data.token && data.data.user) {
-        localStorage.setItem("token", data.data.token);
-        setCurrentUser(data.data.user);
+      if (response.data.success && response.data.data?.token && response.data.data?.user) {
+        localStorage.setItem("token", response.data.data.token);
+        setCurrentUser(response.data.data.user);
       } else {
         throw new Error("Invalid response from server");
       }
     } catch (error) {
       console.error("Registration error:", error);
-      throw error;
+      throw new Error(getErrorMessage(error));
     }
   };
 

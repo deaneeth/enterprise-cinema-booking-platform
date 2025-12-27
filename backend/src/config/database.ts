@@ -11,14 +11,8 @@ import { env, isDevelopment } from './environment';
  */
 export const connectDatabase = async (): Promise<void> => {
   try {
-    // Mongoose connection options
-    const options: mongoose.ConnectOptions = {
-      // These options are no longer needed in Mongoose 6+
-      // but including for clarity
-    };
-
     // Connect to MongoDB
-    const conn = await mongoose.connect(env.MONGODB_URI, options);
+    const conn = await mongoose.connect(env.MONGODB_URI);
 
     console.log(`MongoDB Connected: ${conn.connection.host}`);
 
