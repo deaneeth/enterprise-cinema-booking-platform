@@ -122,7 +122,6 @@ const handleJWTExpiredError = (): {
  * Global Error Handler Middleware
  * Catches all errors and returns consistent error format
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const errorHandler = (
   err: AppError,
   req: Request,
@@ -191,7 +190,6 @@ export const errorHandler = (
  * 404 Not Found Handler
  * Handles requests to undefined routes
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const notFoundHandler = (
   req: Request,
   res: Response,
