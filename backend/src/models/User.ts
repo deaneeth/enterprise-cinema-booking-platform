@@ -86,9 +86,6 @@ const UserSchema: Schema<IUser> = new Schema(
   }
 );
 
-// Index for faster email lookups
-UserSchema.index({ email: 1 });
-
 // Pre-save middleware to hash password before saving
 UserSchema.pre<IUser>('save', async function (next) {
   // Only hash password if it has been modified (or is new)
