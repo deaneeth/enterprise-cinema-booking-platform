@@ -7,6 +7,7 @@ import User, { IUser } from '../models/User';
 import { verifyToken, DecodedToken } from '../utils/jwt';
 
 // Extend Express Request interface to include user
+// eslint-disable-next-line @typescript-eslint/no-namespace
 declare global {
   namespace Express {
     interface Request {

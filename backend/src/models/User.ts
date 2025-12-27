@@ -99,8 +99,8 @@ UserSchema.pre<IUser>('save', async function (next) {
     // Hash the password
     this.password = await bcrypt.hash(this.password, salt);
     next();
-  } catch (error: any) {
-    next(error);
+  } catch (error) {
+    next(error as Error);
   }
 });
 

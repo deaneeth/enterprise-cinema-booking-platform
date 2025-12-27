@@ -126,7 +126,7 @@ export const errorHandler = (
   err: AppError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void => {
   // Default error properties
   let statusCode = err.statusCode || 500;
@@ -193,7 +193,7 @@ export const errorHandler = (
 export const notFoundHandler = (
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void => {
   res
     .status(404)
