@@ -10,8 +10,8 @@ import '../middlewares/auth';
 // Phone number validation regex - allows optional + prefix and common phone number characters
 // NOTE: This is a permissive pattern for basic validation. Consider using a dedicated
 // phone validation library (e.g., libphonenumber-js) for production use.
-// Requires at least one digit to prevent empty-like inputs
-const PHONE_REGEX = /^\+?(?=.*\d)[\d\s-()]+$/;
+// Ensures at least one digit is present
+const PHONE_REGEX = /^\+?[\d\s-()]*\d[\d\s-()]*$/;
 
 /**
  * Register a new user
@@ -142,7 +142,17 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Compare password
-    const isMatch = await user.comparePassword(password);
+    let isMatch = false;
+    try {
+      isMatch = await user.comparePassword(password);
+    } catch (error) {
+      console.error('Password comparison error:', error);
+      res.status(500).json({
+        success: false,
+        error: { message: 'Server error during login' },
+      });
+      return;
+    }
 
     if (!isMatch) {
       res.status(401).json({

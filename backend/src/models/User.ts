@@ -111,8 +111,8 @@ UserSchema.methods.comparePassword = async function (
   try {
     return await bcrypt.compare(candidatePassword, this.password);
   } catch (error) {
-    // Log the error for observability and rethrow so callers can distinguish
-    console.error('Error comparing passwords for user', this._id || 'unknown', error);
+    // Log the error for observability without exposing user ID
+    console.error('Error comparing passwords:', error);
     throw error;
   }
 };
