@@ -2,6 +2,10 @@ import React, { useState, FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth, RegisterData } from "../../contexts/AuthContext";
 
+// Email validation regex - must match backend pattern in User.ts
+// Requires 2+ character TLD, allows standard email characters
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
+
 /**
  * Register component
  * Provides registration form with user details
@@ -54,8 +58,7 @@ const Register: React.FC = () => {
       return "Passwords do not match";
     }
 
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
-    if (!emailRegex.test(formData.email)) {
+    if (!EMAIL_REGEX.test(formData.email)) {
       return "Please enter a valid email address";
     }
 

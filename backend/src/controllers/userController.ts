@@ -8,6 +8,8 @@ import User from '../models/User';
 import '../middlewares/auth';
 
 // Phone number validation regex - allows optional + prefix and common phone number characters
+// NOTE: This is a permissive pattern for basic validation. Consider using a dedicated
+// phone validation library (e.g., libphonenumber-js) for production use.
 const PHONE_REGEX = /^\+?[\d\s-()]+$/;
 
 /**
@@ -616,19 +618,18 @@ export const forgotPassword = async (
     user.resetPasswordExpire = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save({ validateBeforeSave: false });
 
-    // In production, send email with reset link
-    // For now, log the reset link to console (mock email) - development only
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
-
-    // Development-only mock email logging (no sensitive token/URL)
+    // Development-only mock email logging (no sensitive token/URL in production)
     if (process.env.NODE_ENV === 'development') {
+      // Only construct the reset URL in development mode
+      const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
       console.warn('='.repeat(50));
       console.warn('PASSWORD RESET REQUESTED (DEV MOCK EMAIL)');
       console.warn(`Email: ${user.email}`);
-      console.warn('A password reset link would be sent to this address in production.');
+      console.warn(`Reset URL: ${resetUrl}`);
       console.warn('Token expires in: 1 hour');
       console.warn('='.repeat(50));
     }
+    // In production, send email with reset link here (not implemented yet)
 
     res.status(200).json({
       success: true,
