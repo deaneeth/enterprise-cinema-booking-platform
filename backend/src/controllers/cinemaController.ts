@@ -470,6 +470,13 @@ export const deleteCinema = async (
       return;
     }
 
+    if (!cinema.isActive) {
+      res.status(409).json({
+        success: false,
+        error: { message: 'Cinema is already inactive' },
+      });
+      return;
+    }
     cinema.isActive = false;
     await cinema.save();
 
