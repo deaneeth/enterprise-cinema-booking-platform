@@ -16,7 +16,14 @@
 // =============================================================================
 
 import React, { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Link,
+  useNavigate,
+} from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { setUnauthorizedCallback } from "./services/api";
 
@@ -60,79 +67,79 @@ const AppRouter: React.FC = () => {
 
   return (
     <Routes>
-          {/* ============================================================= */}
-          {/* PUBLIC ROUTES - No authentication required */}
-          {/* ============================================================= */}
+      {/* ============================================================= */}
+      {/* PUBLIC ROUTES - No authentication required */}
+      {/* ============================================================= */}
 
-          {/* Member 1: Auth Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+      {/* Member 1: Auth Routes */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
-          {/* TODO: Member 3 (Movies) - Add public movie browsing routes */}
-          {/* <Route path="/movies" element={<MoviesPage />} /> */}
-          {/* <Route path="/movies/:id" element={<MovieDetailPage />} /> */}
+      {/* TODO: Member 3 (Movies) - Add public movie browsing routes */}
+      {/* <Route path="/movies" element={<MoviesPage />} /> */}
+      {/* <Route path="/movies/:id" element={<MovieDetailPage />} /> */}
 
-          {/* TODO: Member 2 (Cinemas) - Add public cinema browsing routes */}
-          <Route path="/cinemas" element={<Cinemas />} />
-          {/* <Route path="/cinemas/:id" element={<CinemaDetailPage />} /> */}
+      {/* TODO: Member 2 (Cinemas) - Add public cinema browsing routes */}
+      <Route path="/cinemas" element={<Cinemas />} />
+      {/* <Route path="/cinemas/:id" element={<CinemaDetailPage />} /> */}
 
-          {/* ============================================================= */}
-          {/* PROTECTED ROUTES - Authentication required */}
-          {/* ============================================================= */}
+      {/* ============================================================= */}
+      {/* PROTECTED ROUTES - Authentication required */}
+      {/* ============================================================= */}
 
-          {/* Member 1: Profile Route */}
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
+      {/* Member 1: Profile Route */}
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
 
-          {/* TODO: Member 5 (Bookings) - Add booking routes */}
-          {/* <Route path="/bookings" element={<ProtectedRoute><BookingsPage /></ProtectedRoute>} /> */}
-          {/* <Route path="/bookings/:id" element={<ProtectedRoute><BookingDetailPage /></ProtectedRoute>} /> */}
+      {/* TODO: Member 5 (Bookings) - Add booking routes */}
+      {/* <Route path="/bookings" element={<ProtectedRoute><BookingsPage /></ProtectedRoute>} /> */}
+      {/* <Route path="/bookings/:id" element={<ProtectedRoute><BookingDetailPage /></ProtectedRoute>} /> */}
 
-          {/* TODO: Member 7 (Payments) - Add payment routes */}
-          {/* <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} /> */}
+      {/* TODO: Member 7 (Payments) - Add payment routes */}
+      {/* <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} /> */}
 
-          {/* ============================================================= */}
-          {/* ADMIN ROUTES - Admin role required */}
-          {/* ============================================================= */}
+      {/* ============================================================= */}
+      {/* ADMIN ROUTES - Admin role required */}
+      {/* ============================================================= */}
 
-          {/* TODO: Member 2 (Cinemas) - Add cinema admin routes */}
-          {/* <Route path="/admin/cinemas" element={<ProtectedRoute allowedRoles={["cinema_admin"]}><CinemaAdminPage /></ProtectedRoute>} /> */}
+      {/* TODO: Member 2 (Cinemas) - Add cinema admin routes */}
+      {/* <Route path="/admin/cinemas" element={<ProtectedRoute allowedRoles={["cinema_admin"]}><CinemaAdminPage /></ProtectedRoute>} /> */}
 
-          {/* TODO: Member 4 (Showtimes) - Add showtime management routes */}
-          {/* <Route path="/admin/showtimes" element={<ProtectedRoute allowedRoles={["cinema_admin"]}><ShowtimeAdminPage /></ProtectedRoute>} /> */}
+      {/* TODO: Member 4 (Showtimes) - Add showtime management routes */}
+      {/* <Route path="/admin/showtimes" element={<ProtectedRoute allowedRoles={["cinema_admin"]}><ShowtimeAdminPage /></ProtectedRoute>} /> */}
 
-          {/* ============================================================= */}
-          {/* DEFAULT ROUTES */}
-          {/* ============================================================= */}
+      {/* ============================================================= */}
+      {/* DEFAULT ROUTES */}
+      {/* ============================================================= */}
 
-          {/* Home page - redirect to login or movies page */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
+      {/* Home page - redirect to login or movies page */}
+      <Route path="/" element={<Navigate to="/login" replace />} />
 
-          {/* 404 - Catch all unmatched routes */}
-          <Route
-            path="*"
-            element={
-              <div className="min-h-screen flex items-center justify-center bg-gray-100">
-                <div className="text-center">
-                  <h1 className="text-6xl font-bold text-gray-300">404</h1>
-                  <p className="text-xl text-gray-600 mt-4">Page not found</p>
-                  <Link
-                    to="/login"
-                    className="mt-6 inline-block px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                  >
-                    Go Home
-                  </Link>
-                </div>
-              </div>
-            }
-          />
-        </Routes>
+      {/* 404 - Catch all unmatched routes */}
+      <Route
+        path="*"
+        element={
+          <div className="min-h-screen flex items-center justify-center bg-gray-100">
+            <div className="text-center">
+              <h1 className="text-6xl font-bold text-gray-300">404</h1>
+              <p className="text-xl text-gray-600 mt-4">Page not found</p>
+              <Link
+                to="/login"
+                className="mt-6 inline-block px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              >
+                Go Home
+              </Link>
+            </div>
+          </div>
+        }
+      />
+    </Routes>
   );
 };
 
