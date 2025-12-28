@@ -18,7 +18,6 @@ export interface ICinemaLocation {
 
 // Cinema document interface (Mongoose + application fields)
 export interface ICinema extends Document {
-  
   name: string;
   chain?: string;
   location?: ICinemaLocation;
@@ -90,6 +89,8 @@ const CinemaSchema: Schema<ICinema> = new Schema(
   }
 );
 
+// Compound index to optimize queries filtering by city and active status
+CinemaSchema.index({ 'location.city': 1, isActive: 1 });
 // ============================================
 // METHODS
 // ============================================

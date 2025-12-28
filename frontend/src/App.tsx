@@ -47,7 +47,7 @@ import Profile from "./pages/Profile";
 // Member 8 (Reviews): import ReviewsPage from './pages/Reviews';
 // =============================================================================
 
-// TEMP (Member 2): Added for local testing; remove before committing if needed
+// Member 2 (Cinemas): Cinemas page route import
 import Cinemas from "./pages/Cinemas";
 
 /**
