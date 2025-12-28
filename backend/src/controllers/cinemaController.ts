@@ -633,7 +633,7 @@ export const searchCinemas = async (
     }
 
     const term = q.trim();
-    const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\\-]/g, '\\$&'), 'i');
 
     const filter = {
       isActive: true,
