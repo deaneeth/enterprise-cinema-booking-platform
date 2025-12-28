@@ -40,6 +40,9 @@ import Profile from "./pages/Profile";
 // Member 8 (Reviews): import ReviewsPage from './pages/Reviews';
 // =============================================================================
 
+// TEMP (Member 2): Added for local testing; remove before committing if needed
+import Cinemas from "./pages/Cinemas";
+
 /**
  * Router component that sets up navigation callback
  */
@@ -70,7 +73,7 @@ const AppRouter: React.FC = () => {
           {/* <Route path="/movies/:id" element={<MovieDetailPage />} /> */}
 
           {/* TODO: Member 2 (Cinemas) - Add public cinema browsing routes */}
-          {/* <Route path="/cinemas" element={<CinemasPage />} /> */}
+          <Route path="/cinemas" element={<Cinemas />} />
           {/* <Route path="/cinemas/:id" element={<CinemaDetailPage />} /> */}
 
           {/* ============================================================= */}
