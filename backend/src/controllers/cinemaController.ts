@@ -105,7 +105,7 @@ export const createCinema = async (
     if (req.user.role !== 'platform_admin') {
       res.status(403).json({
         success: false,
-        error: { message: 'Access denied. Platform admin only.' },
+        error: { message: 'Access denied. This action requires platform admin privileges.' },
       });
       return;
     }
