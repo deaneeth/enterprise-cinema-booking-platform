@@ -8,6 +8,7 @@ import {
   deleteCinema,
   getAllCinemas,
   getCinemaById,
+  searchCinemas,
   updateCinema,
 } from '../controllers/cinemaController';
 import { authenticate, requireRole } from '../middlewares/auth';
@@ -24,6 +25,13 @@ const router = Router();
  * @access  Public
  */
 router.get('/cinemas', getAllCinemas);
+
+/**
+ * @route   GET /api/cinemas/search?q=<term>
+ * @desc    Search cinemas by name or city
+ * @access  Public
+ */
+router.get('/cinemas/search', searchCinemas);
 
 /**
  * @route   GET /api/cinemas/:id

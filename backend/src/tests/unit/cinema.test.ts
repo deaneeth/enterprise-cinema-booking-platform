@@ -1,6 +1,6 @@
 // cinema.test.ts (Member 2)
 // Unit tests for Cinema model
-// Tests required fields, calculateDistance, and default values
+// Tests schema validation, default values, and calculateDistance method
 
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
@@ -9,22 +9,34 @@ import Cinema from '../../models/Cinema';
 // MongoDB Memory Server instance
 let mongoServer: MongoMemoryServer;
 
+// Setup: Connect to in-memory MongoDB before all tests
 beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create();
+  mongoServer = await MongoMemoryServer.create({
+    instance: {
+      ip: '127.0.0.1',
+    },
+  });
   const mongoUri = mongoServer.getUri();
   await mongoose.connect(mongoUri);
 });
 
+// Cleanup: Clear database after each test
 afterEach(async () => {
   await Cinema.deleteMany({});
 });
 
+// Teardown: Disconnect and stop MongoDB after all tests
 afterAll(async () => {
   await mongoose.disconnect();
-  await mongoServer.stop();
+  if (mongoServer) {
+    await mongoServer.stop();
+  }
 });
 
 describe('Cinema Model', () => {
+  // ============================================
+  // FIELD VALIDATION TESTS
+  // ============================================
   describe('Field Validation', () => {
     it('should require name', async () => {
       const cinema = new Cinema({});
@@ -40,6 +52,9 @@ describe('Cinema Model', () => {
     });
   });
 
+  // ============================================
+  // CALCULATE DISTANCE TESTS
+  // ============================================
   describe('calculateDistance Method', () => {
     it('should return 0 km for the same coordinates', async () => {
       const cinema = new Cinema({
