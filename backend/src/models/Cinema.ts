@@ -9,13 +9,16 @@ export interface ICinemaCoordinates {
   lng: number;
 }
 
+// Location information for a cinema (optional fields allow partial updates)
 export interface ICinemaLocation {
   address?: string;
   city?: string;
   coordinates?: ICinemaCoordinates;
 }
 
+// Cinema document interface (Mongoose + application fields)
 export interface ICinema extends Document {
+  
   name: string;
   chain?: string;
   location?: ICinemaLocation;
@@ -27,6 +30,10 @@ export interface ICinema extends Document {
   updatedAt: Date;
   calculateDistance(lat: number, lng: number): number;
 }
+
+// ============================================
+// SCHEMA
+// ============================================
 
 const CinemaSchema: Schema<ICinema> = new Schema(
   {
@@ -83,6 +90,12 @@ const CinemaSchema: Schema<ICinema> = new Schema(
   }
 );
 
+// ============================================
+// METHODS
+// ============================================
+
+// Calculates the great-circle distance (Haversine formula) between this cinema and
+// a target coordinate. Returns distance in kilometers.
 CinemaSchema.methods.calculateDistance = function (
   lat: number,
   lng: number
@@ -114,6 +127,10 @@ CinemaSchema.methods.calculateDistance = function (
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return earthRadiusKm * c;
 };
+
+// ============================================
+// MODEL EXPORT
+// ============================================
 
 const Cinema = mongoose.model<ICinema>('Cinema', CinemaSchema);
 
