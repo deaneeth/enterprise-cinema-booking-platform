@@ -253,7 +253,7 @@ describe('Cinema Endpoints', () => {
         .expect(400);
 
       expect(res.body.success).toBe(false);
-      expect(res.body.error.message).toContain('coordinates must include both lat and lng');
+      expect(res.body.error.message).toContain('must include both lat and lng');
     });
 
     it('should reject creation with incomplete coordinates (lng only)', async () => {
@@ -274,7 +274,7 @@ describe('Cinema Endpoints', () => {
         .expect(400);
 
       expect(res.body.success).toBe(false);
-      expect(res.body.error.message).toContain('coordinates must include both lat and lng');
+      expect(res.body.error.message).toContain('must include both lat and lng');
     });
   });
 

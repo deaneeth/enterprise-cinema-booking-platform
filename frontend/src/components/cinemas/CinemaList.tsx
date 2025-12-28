@@ -17,8 +17,15 @@ export type Cinema = {
   screens?: number;
 };
 
+type PaginationMetadata = {
+  total: number;
+  limit: number;
+  skip: number;
+};
+
 type GetCinemasResponse = {
   cinemas: Cinema[];
+  pagination?: PaginationMetadata;
 };
 
 const Spinner: React.FC = () => {
