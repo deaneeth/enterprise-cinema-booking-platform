@@ -421,7 +421,7 @@ export const updateCinema = async (
         });
         return;
       }
-      cinema.chain = typeof chain === 'string' ? chain.trim() : undefined;
+      cinema.chain = typeof chain === 'string' ? chain.trim() : null;
     }
 
     if (location !== undefined) {
