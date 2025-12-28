@@ -30,6 +30,62 @@ const isValidObjectId = (id: unknown): id is string => {
 };
 
 /**
+ * Validate location object structure and coordinate ranges
+ */
+const validateLocation = (location: unknown): string | null => {
+  if (location === null || location === undefined) {
+    return null; // location is optional
+  }
+
+  if (typeof location !== 'object' || Array.isArray(location)) {
+    return 'location must be an object';
+  }
+
+  const loc = location as Record<string, unknown>;
+
+  // Validate coordinates if provided
+  if (loc.coordinates !== undefined) {
+    if (
+      typeof loc.coordinates !== 'object' ||
+      loc.coordinates === null ||
+      Array.isArray(loc.coordinates)
+    ) {
+      return 'location.coordinates must be an object';
+    }
+
+    const coords = loc.coordinates as Record<string, unknown>;
+
+    if (coords.lat !== undefined) {
+      if (typeof coords.lat !== 'number' || !Number.isFinite(coords.lat)) {
+        return 'location.coordinates.lat must be a valid number';
+      }
+      if (coords.lat < -90 || coords.lat > 90) {
+        return 'location.coordinates.lat must be between -90 and 90';
+      }
+    }
+
+    if (coords.lng !== undefined) {
+      if (typeof coords.lng !== 'number' || !Number.isFinite(coords.lng)) {
+        return 'location.coordinates.lng must be a valid number';
+      }
+      if (coords.lng < -180 || coords.lng > 180) {
+        return 'location.coordinates.lng must be between -180 and 180';
+      }
+    }
+
+    // If coordinates object is provided, both lat and lng should be present
+    if (
+      (coords.lat !== undefined && coords.lng === undefined) ||
+      (coords.lat === undefined && coords.lng !== undefined)
+    ) {
+      return 'location.coordinates must include both lat and lng properties';
+    }
+  }
+
+  return null; // validation passed
+};
+
+/**
  * Create a new cinema (platform admin only)
  * POST /api/cinemas
  */
@@ -95,6 +151,16 @@ export const createCinema = async (
       }
     }
 
+    // Validate location structure and coordinates
+    const locationError = validateLocation(location);
+    if (locationError) {
+      res.status(400).json({
+        success: false,
+        error: { message: locationError },
+      });
+      return;
+    }
+
     const facilitiesArray: string[] = Array.isArray(facilities)
       ? facilities
           .filter((f: unknown) => typeof f === 'string')
@@ -144,15 +210,35 @@ export const createCinema = async (
 
 /**
  * Get all cinemas with optional filters
- * GET /api/cinemas?city=Colombo&facilities=IMAX,3D
+ * GET /api/cinemas?city=Colombo&facilities=IMAX,3D&limit=10&skip=0
  */
 export const getAllCinemas = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const { city } = req.query;
+    const { city, limit, skip } = req.query;
     const facilities = parseFacilitiesQuery(req.query.facilities);
+
+    // Parse pagination parameters
+    const limitNum = limit ? parseInt(limit as string, 10) : 50;
+    const skipNum = skip ? parseInt(skip as string, 10) : 0;
+
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'limit must be a number between 1 and 100' },
+      });
+      return;
+    }
+
+    if (isNaN(skipNum) || skipNum < 0) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'skip must be a non-negative number' },
+      });
+      return;
+    }
 
     const filter: Record<string, unknown> = {
       isActive: true,
@@ -174,11 +260,23 @@ export const getAllCinemas = async (
       filter.facilities = { $all: facilities };
     }
 
-    const cinemas = await Cinema.find(filter).sort({ createdAt: -1 });
+    const cinemas = await Cinema.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limitNum)
+      .skip(skipNum);
+
+    const total = await Cinema.countDocuments(filter);
 
     res.status(200).json({
       success: true,
-      data: { cinemas },
+      data: {
+        cinemas,
+        pagination: {
+          total,
+          limit: limitNum,
+          skip: skipNum,
+        },
+      },
     });
   } catch (error) {
     console.error('Get all cinemas error:', error);
@@ -327,10 +425,12 @@ export const updateCinema = async (
     }
 
     if (location !== undefined) {
-      if (location !== null && typeof location !== 'object') {
+      // Validate location structure and coordinates
+      const locationError = validateLocation(location);
+      if (locationError) {
         res.status(400).json({
           success: false,
-          error: { message: 'location must be an object' },
+          error: { message: locationError },
         });
         return;
       }
@@ -495,14 +595,14 @@ export const deleteCinema = async (
 
 /**
  * Search cinemas by name or city
- * GET /api/cinemas/search?q=colombo
+ * GET /api/cinemas/search?q=colombo&limit=10&skip=0
  */
 export const searchCinemas = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const q = req.query.q;
+    const { q, limit, skip } = req.query;
 
     if (typeof q !== 'string' || !q.trim()) {
       res.status(400).json({
@@ -512,17 +612,51 @@ export const searchCinemas = async (
       return;
     }
 
+    // Parse pagination parameters
+    const limitNum = limit ? parseInt(limit as string, 10) : 50;
+    const skipNum = skip ? parseInt(skip as string, 10) : 0;
+
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'limit must be a number between 1 and 100' },
+      });
+      return;
+    }
+
+    if (isNaN(skipNum) || skipNum < 0) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'skip must be a non-negative number' },
+      });
+      return;
+    }
+
     const term = q.trim();
     const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
-    const cinemas = await Cinema.find({
+    const filter = {
       isActive: true,
       $or: [{ name: regex }, { 'location.city': regex }],
-    }).sort({ createdAt: -1 });
+    };
+
+    const cinemas = await Cinema.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limitNum)
+      .skip(skipNum);
+
+    const total = await Cinema.countDocuments(filter);
 
     res.status(200).json({
       success: true,
-      data: { cinemas },
+      data: {
+        cinemas,
+        pagination: {
+          total,
+          limit: limitNum,
+          skip: skipNum,
+        },
+      },
     });
   } catch (error) {
     console.error('Search cinemas error:', error);

@@ -108,6 +108,174 @@ describe('Cinema Endpoints', () => {
         .send({ name: 'Should Fail' })
         .expect(403);
     });
+
+    it('should reject creation with invalid latitude (> 90)', async () => {
+      const { token } = await createUserWithToken({ role: 'platform_admin' });
+
+      const payload = {
+        name: 'Test Cinema',
+        location: {
+          city: 'Test City',
+          coordinates: { lat: 91, lng: 79.8612 },
+        },
+      };
+
+      const res = await request(app)
+        .post('/api/cinemas')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload)
+        .expect(400);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.message).toContain('lat must be between -90 and 90');
+    });
+
+    it('should reject creation with invalid latitude (< -90)', async () => {
+      const { token } = await createUserWithToken({ role: 'platform_admin' });
+
+      const payload = {
+        name: 'Test Cinema',
+        location: {
+          city: 'Test City',
+          coordinates: { lat: -91, lng: 79.8612 },
+        },
+      };
+
+      const res = await request(app)
+        .post('/api/cinemas')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload)
+        .expect(400);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.message).toContain('lat must be between -90 and 90');
+    });
+
+    it('should reject creation with invalid longitude (> 180)', async () => {
+      const { token } = await createUserWithToken({ role: 'platform_admin' });
+
+      const payload = {
+        name: 'Test Cinema',
+        location: {
+          city: 'Test City',
+          coordinates: { lat: 6.9271, lng: 181 },
+        },
+      };
+
+      const res = await request(app)
+        .post('/api/cinemas')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload)
+        .expect(400);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.message).toContain('lng must be between -180 and 180');
+    });
+
+    it('should reject creation with invalid longitude (< -180)', async () => {
+      const { token } = await createUserWithToken({ role: 'platform_admin' });
+
+      const payload = {
+        name: 'Test Cinema',
+        location: {
+          city: 'Test City',
+          coordinates: { lat: 6.9271, lng: -181 },
+        },
+      };
+
+      const res = await request(app)
+        .post('/api/cinemas')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload)
+        .expect(400);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.message).toContain('lng must be between -180 and 180');
+    });
+
+    it('should reject creation with non-numeric latitude', async () => {
+      const { token } = await createUserWithToken({ role: 'platform_admin' });
+
+      const payload = {
+        name: 'Test Cinema',
+        location: {
+          city: 'Test City',
+          coordinates: { lat: 'invalid', lng: 79.8612 },
+        },
+      };
+
+      const res = await request(app)
+        .post('/api/cinemas')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload)
+        .expect(400);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.message).toContain('lat must be a valid number');
+    });
+
+    it('should reject creation with non-numeric longitude', async () => {
+      const { token } = await createUserWithToken({ role: 'platform_admin' });
+
+      const payload = {
+        name: 'Test Cinema',
+        location: {
+          city: 'Test City',
+          coordinates: { lat: 6.9271, lng: 'invalid' },
+        },
+      };
+
+      const res = await request(app)
+        .post('/api/cinemas')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload)
+        .expect(400);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.message).toContain('lng must be a valid number');
+    });
+
+    it('should reject creation with incomplete coordinates (lat only)', async () => {
+      const { token } = await createUserWithToken({ role: 'platform_admin' });
+
+      const payload = {
+        name: 'Test Cinema',
+        location: {
+          city: 'Test City',
+          coordinates: { lat: 6.9271 },
+        },
+      };
+
+      const res = await request(app)
+        .post('/api/cinemas')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload)
+        .expect(400);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.message).toContain('coordinates must include both lat and lng');
+    });
+
+    it('should reject creation with incomplete coordinates (lng only)', async () => {
+      const { token } = await createUserWithToken({ role: 'platform_admin' });
+
+      const payload = {
+        name: 'Test Cinema',
+        location: {
+          city: 'Test City',
+          coordinates: { lng: 79.8612 },
+        },
+      };
+
+      const res = await request(app)
+        .post('/api/cinemas')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload)
+        .expect(400);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.message).toContain('coordinates must include both lat and lng');
+    });
   });
 
   // ============================================
