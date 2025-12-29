@@ -105,7 +105,10 @@ export const createCinema = async (
     if (req.user.role !== 'platform_admin') {
       res.status(403).json({
         success: false,
-        error: { message: 'Access denied. This action requires platform admin privileges.' },
+        error: {
+          message:
+            'Access denied. This action requires platform admin privileges.',
+        },
       });
       return;
     }
@@ -421,7 +424,7 @@ export const updateCinema = async (
         });
         return;
       }
-      cinema.chain = typeof chain === 'string' ? chain.trim() : null;
+      cinema.chain = typeof chain === 'string' ? chain.trim() : undefined;
     }
 
     if (location !== undefined) {
@@ -633,7 +636,7 @@ export const searchCinemas = async (
     }
 
     const term = q.trim();
-    const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\\-]/g, '\\$&'), 'i');
+    const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&'), 'i');
 
     const filter = {
       isActive: true,
