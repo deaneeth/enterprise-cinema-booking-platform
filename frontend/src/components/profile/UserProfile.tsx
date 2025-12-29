@@ -6,18 +6,6 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { usersApi, getErrorMessage } from "../../services/api";
 
-// User data interface
-interface UserData {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-  role: "user" | "cinema_admin" | "platform_admin";
-  isActive: boolean;
-  createdAt: string;
-}
-
 // Edit form data interface
 interface EditFormData {
   firstName: string;
