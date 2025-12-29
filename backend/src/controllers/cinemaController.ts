@@ -73,13 +73,21 @@ const validateLocation = (location: unknown): string | null => {
       }
     }
 
-    // If coordinates object is provided, both lat and lng should be present
-    if (
-      (coords.lat !== undefined && coords.lng === undefined) ||
-      (coords.lat === undefined && coords.lng !== undefined)
-    ) {
+    // If coordinates object is provided, it must have both lat and lng
+    const hasLat = coords.lat !== undefined;
+    const hasLng = coords.lng !== undefined;
+
+    // Case: one coordinate without the other
+    if (hasLat !== hasLng) {
       return 'location.coordinates must include both lat and lng properties';
     }
+
+    // Case: coordinates object has other properties but missing lat/lng
+    if (!hasLat && !hasLng && Object.keys(coords).length > 0) {
+      return 'location.coordinates must include both lat and lng properties';
+    }
+
+    // Note: Empty coordinates object {} is allowed and will be ignored
   }
 
   return null; // validation passed
