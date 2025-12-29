@@ -38,9 +38,9 @@ const CinemaCard: React.FC<Props> = ({ cinema }) => {
 
       {facilities.length > 0 ? (
         <div className="mt-4 flex flex-wrap gap-2">
-          {facilities.slice(0, 8).map((facility) => (
+          {facilities.slice(0, 8).map((facility, index) => (
             <span
-              key={facility}
+              key={`${facility}-${index}`}
               className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"
             >
               {facility}

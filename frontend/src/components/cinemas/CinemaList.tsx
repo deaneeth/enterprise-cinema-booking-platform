@@ -119,7 +119,10 @@ const CinemaList: React.FC = () => {
     <div className="w-full">
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="w-full md:max-w-md">
-          <label htmlFor="cinema-search" className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="cinema-search"
+            className="block text-sm font-medium text-gray-700"
+          >
             Search
           </label>
           <input
@@ -134,7 +137,10 @@ const CinemaList: React.FC = () => {
         </div>
 
         <div className="w-full md:w-64">
-          <label htmlFor="cinema-city-filter" className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="cinema-city-filter"
+            className="block text-sm font-medium text-gray-700"
+          >
             City
           </label>
           <select
@@ -183,11 +189,12 @@ const CinemaList: React.FC = () => {
                 </div>
               </div>
 
-              {Array.isArray(cinema.facilities) && cinema.facilities.length > 0 ? (
+              {Array.isArray(cinema.facilities) &&
+              cinema.facilities.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {cinema.facilities.slice(0, 8).map((facility) => (
+                  {cinema.facilities.slice(0, 8).map((facility, index) => (
                     <span
-                      key={facility}
+                      key={`${facility}-${index}`}
                       className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"
                     >
                       {facility}
@@ -195,7 +202,9 @@ const CinemaList: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                <p className="mt-4 text-sm text-gray-500">No facilities listed</p>
+                <p className="mt-4 text-sm text-gray-500">
+                  No facilities listed
+                </p>
               )}
             </Link>
           ))}
