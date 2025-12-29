@@ -104,4 +104,4 @@
 Recommended indexes (some may be implemented later as the dataset grows):
 
 - Cinemas: `{ "location.city": 1, "isActive": 1 }`
-- Cinemas: `{ "name": "text" }` (for text search)
+- Cinemas: name search is implemented using a case-insensitive regex on the `name` field (no text index defined). A MongoDB text index `{ "name": "text" }` can be added in the future if needed for full-text search and performance.
