@@ -15,6 +15,7 @@ import { connectDatabase, setupDatabaseEvents } from './config/database';
 
 // Route imports
 import userRoutes from './routes/users';
+import cinemaRoutes from './routes/cinemas';
 
 // Middleware imports
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
@@ -81,6 +82,9 @@ app.get('/health', (req: Request, res: Response) => {
 
 // User routes (auth + users)
 app.use('/api', userRoutes);
+
+// Cinema routes
+app.use('/api', cinemaRoutes);
 
 // ============================================
 // ERROR HANDLING
