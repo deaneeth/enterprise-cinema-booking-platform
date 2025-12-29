@@ -70,8 +70,8 @@
   "adminUserId": "6587b3b0c2f4c10a8e2b5678",
   "screens": 10,
   "isActive": true,
-  "createdAt": "2025-12-28T08:00:00.000Z",
-  "updatedAt": "2025-12-28T08:00:00.000Z"
+  "createdAt": "2024-01-15T08:00:00.000Z",
+  "updatedAt": "2024-01-15T08:00:00.000Z"
 }
 ```
 
@@ -88,8 +88,8 @@
   "facilities": ["3D"],
   "screens": 6,
   "isActive": true,
-  "createdAt": "2025-12-28T08:10:00.000Z",
-  "updatedAt": "2025-12-28T08:10:00.000Z"
+  "createdAt": "2024-01-15T08:10:00.000Z",
+  "updatedAt": "2024-01-15T08:10:00.000Z"
 }
 ```
 
