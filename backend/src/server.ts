@@ -16,6 +16,8 @@ import { connectDatabase, setupDatabaseEvents } from './config/database';
 // Route imports
 import userRoutes from './routes/users';
 import cinemaRoutes from './routes/cinemas';
+import MovieRoutes from './routes/movies';
+
 
 // Middleware imports
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
@@ -85,6 +87,10 @@ app.use('/api', userRoutes);
 
 // Cinema routes
 app.use('/api', cinemaRoutes);
+
+
+// Movie routes
+app.use('/api', MovieRoutes);
 
 // ============================================
 // ERROR HANDLING

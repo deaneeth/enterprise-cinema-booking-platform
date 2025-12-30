@@ -50,9 +50,17 @@ const MovieDetail: React.FC<Props> = ({ movieId }) => {
       setLoading(true);
       setNotFound(false);
       try {
-        const res = await api.get<ApiResponse<Movie>>(`/api/movies/${id}`);
+        const res = await api.get<ApiResponse<any>>(`/api/movies/${id}`);
         if (cancelled) return;
-        setMovie(res.data.data ?? null);
+        // API may return { data: movie } or { data: { movie } }
+        const payload = res.data.data;
+        if (!payload) {
+          setMovie(null);
+        } else if (payload.movie) {
+          setMovie(payload.movie as Movie);
+        } else {
+          setMovie(payload as Movie);
+        }
       } catch (err) {
         const aErr = err as AxiosError;
         if (aErr?.response?.status === 404) {

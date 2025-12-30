@@ -49,13 +49,31 @@ const MovieList: React.FC = () => {
         if (rating) params.rating = rating;
         if (debouncedSearch) params.q = debouncedSearch;
 
-        const res = await api.get<ApiResponse<Movie[]>>("/api/movies", {
+        const res = await api.get<ApiResponse<any>>("/api/movies", {
           params,
         });
         const body = res.data;
         if (cancelled) return;
-        setMovies(Array.isArray(body.data) ? (body.data as Movie[]) : []);
-        const pages = body.pagination?.pages ?? 1;
+        // Support both response shapes:
+        // 1) { success, data: { movies, pagination } }
+        // 2) { success, data: Movie[] , pagination }
+        let moviesArr: Movie[] = [];
+        let pages = 1;
+
+        if (body?.data) {
+          // shape 2: data is an array of Movie
+          if (Array.isArray(body.data)) {
+            moviesArr = body.data as Movie[];
+            pages = body.pagination?.pages ?? 1;
+          }
+
+          // shape 1: data is object { movies, pagination }
+          else if (body.data && Array.isArray(body.data.movies)) {
+            moviesArr = body.data.movies as Movie[];
+            pages = body.data.pagination?.pages ?? 1;
+          }
+        }
+        setMovies(moviesArr);
         setTotalPages(pages);
       } catch (err) {
         if (cancelled) return;

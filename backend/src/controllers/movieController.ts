@@ -44,12 +44,10 @@ export const createMovie = async (
       return;
     }
     if (req.user.role !== 'platform_admin') {
-      res
-        .status(403)
-        .json({
-          success: false,
-          error: { message: 'Access denied. Platform admin only.' },
-        });
+      res.status(403).json({
+        success: false,
+        error: { message: 'Access denied. Platform admin only.' },
+      });
       return;
     }
 
@@ -82,12 +80,10 @@ export const createMovie = async (
       Array.isArray(genre) &&
       genre.length > 0
     ) {
-      res
-        .status(400)
-        .json({
-          success: false,
-          error: { message: `genre must be one of: ${GENRES.join(', ')}` },
-        });
+      res.status(400).json({
+        success: false,
+        error: { message: `genre must be one of: ${GENRES.join(', ')}` },
+      });
       return;
     }
 
@@ -96,14 +92,12 @@ export const createMovie = async (
       language !== null &&
       !LANGUAGES.includes(String(language))
     ) {
-      res
-        .status(400)
-        .json({
-          success: false,
-          error: {
-            message: `language must be one of: ${LANGUAGES.join(', ')}`,
-          },
-        });
+      res.status(400).json({
+        success: false,
+        error: {
+          message: `language must be one of: ${LANGUAGES.join(', ')}`,
+        },
+      });
       return;
     }
 
@@ -112,12 +106,10 @@ export const createMovie = async (
       rating !== null &&
       !RATINGS.includes(String(rating))
     ) {
-      res
-        .status(400)
-        .json({
-          success: false,
-          error: { message: `rating must be one of: ${RATINGS.join(', ')}` },
-        });
+      res.status(400).json({
+        success: false,
+        error: { message: `rating must be one of: ${RATINGS.join(', ')}` },
+      });
       return;
     }
 
@@ -129,12 +121,10 @@ export const createMovie = async (
       durationNum !== undefined &&
       (!Number.isFinite(durationNum) || durationNum < 0)
     ) {
-      res
-        .status(400)
-        .json({
-          success: false,
-          error: { message: 'duration must be a non-negative number' },
-        });
+      res.status(400).json({
+        success: false,
+        error: { message: 'duration must be a non-negative number' },
+      });
       return;
     }
 
@@ -168,7 +158,7 @@ export const createMovie = async (
       isActive: typeof isActive === 'boolean' ? isActive : undefined,
     });
 
-    res.status(201).json({ success: true, data: movie });
+    res.status(201).json({ success: true, data: { movie } });
   } catch (error: unknown) {
     console.error('Create movie error:', error);
     if (error instanceof Error && error.name === 'ValidationError') {
@@ -177,12 +167,10 @@ export const createMovie = async (
         .json({ success: false, error: { message: error.message } });
       return;
     }
-    res
-      .status(500)
-      .json({
-        success: false,
-        error: { message: 'Server error creating movie' },
-      });
+    res.status(500).json({
+      success: false,
+      error: { message: 'Server error creating movie' },
+    });
   }
 };
 
@@ -206,14 +194,12 @@ export const getAllMovies = async (
     if (language && typeof language === 'string') {
       if (LANGUAGES.includes(language)) filter.language = language;
       else {
-        res
-          .status(400)
-          .json({
-            success: false,
-            error: {
-              message: `language must be one of: ${LANGUAGES.join(', ')}`,
-            },
-          });
+        res.status(400).json({
+          success: false,
+          error: {
+            message: `language must be one of: ${LANGUAGES.join(', ')}`,
+          },
+        });
         return;
       }
     }
@@ -221,12 +207,10 @@ export const getAllMovies = async (
     if (rating && typeof rating === 'string') {
       if (RATINGS.includes(rating)) filter.rating = rating;
       else {
-        res
-          .status(400)
-          .json({
-            success: false,
-            error: { message: `rating must be one of: ${RATINGS.join(', ')}` },
-          });
+        res.status(400).json({
+          success: false,
+          error: { message: `rating must be one of: ${RATINGS.join(', ')}` },
+        });
         return;
       }
     }
@@ -245,21 +229,19 @@ export const getAllMovies = async (
     const total = await Movie.countDocuments(filter);
     const pages = Math.max(1, Math.ceil(total / limit));
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        data: movies,
+    res.status(200).json({
+      success: true,
+      data: {
+        movies,
         pagination: { page, limit, total, pages },
-      });
+      },
+    });
   } catch (error) {
     console.error('Get all movies error:', error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        error: { message: 'Server error fetching movies' },
-      });
+    res.status(500).json({
+      success: false,
+      error: { message: 'Server error fetching movies' },
+    });
   }
 };
 
@@ -284,15 +266,13 @@ export const getMovieById = async (
       return;
     }
 
-    res.status(200).json({ success: true, data: movie });
+    res.status(200).json({ success: true, data: { movie } });
   } catch (error) {
     console.error('Get movie by id error:', error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        error: { message: 'Server error fetching movie' },
-      });
+    res.status(500).json({
+      success: false,
+      error: { message: 'Server error fetching movie' },
+    });
   }
 };
 
@@ -308,12 +288,10 @@ export const updateMovie = async (
       return;
     }
     if (req.user.role !== 'platform_admin') {
-      res
-        .status(403)
-        .json({
-          success: false,
-          error: { message: 'Access denied. Platform admin only.' },
-        });
+      res.status(403).json({
+        success: false,
+        error: { message: 'Access denied. Platform admin only.' },
+      });
       return;
     }
 
@@ -350,12 +328,10 @@ export const updateMovie = async (
 
     if (title !== undefined) {
       if (!title || typeof title !== 'string' || !title.trim()) {
-        res
-          .status(400)
-          .json({
-            success: false,
-            error: { message: 'title must be a non-empty string' },
-          });
+        res.status(400).json({
+          success: false,
+          error: { message: 'title must be a non-empty string' },
+        });
         return;
       }
       movie.title = title.trim();
@@ -374,14 +350,12 @@ export const updateMovie = async (
 
     if (language !== undefined) {
       if (language !== null && !LANGUAGES.includes(String(language))) {
-        res
-          .status(400)
-          .json({
-            success: false,
-            error: {
-              message: `language must be one of: ${LANGUAGES.join(', ')}`,
-            },
-          });
+        res.status(400).json({
+          success: false,
+          error: {
+            message: `language must be one of: ${LANGUAGES.join(', ')}`,
+          },
+        });
         return;
       }
       movie.language = language ? String(language) : undefined;
@@ -393,12 +367,10 @@ export const updateMovie = async (
         durationNum !== undefined &&
         (!Number.isFinite(durationNum) || durationNum < 0)
       ) {
-        res
-          .status(400)
-          .json({
-            success: false,
-            error: { message: 'duration must be a non-negative number' },
-          });
+        res.status(400).json({
+          success: false,
+          error: { message: 'duration must be a non-negative number' },
+        });
         return;
       }
       movie.duration = durationNum;
@@ -409,12 +381,10 @@ export const updateMovie = async (
       else {
         const d = new Date(releaseDate);
         if (Number.isNaN(d.getTime())) {
-          res
-            .status(400)
-            .json({
-              success: false,
-              error: { message: 'Invalid releaseDate' },
-            });
+          res.status(400).json({
+            success: false,
+            error: { message: 'Invalid releaseDate' },
+          });
           return;
         }
         movie.releaseDate = d;
@@ -423,12 +393,10 @@ export const updateMovie = async (
 
     if (rating !== undefined) {
       if (rating !== null && !RATINGS.includes(String(rating))) {
-        res
-          .status(400)
-          .json({
-            success: false,
-            error: { message: `rating must be one of: ${RATINGS.join(', ')}` },
-          });
+        res.status(400).json({
+          success: false,
+          error: { message: `rating must be one of: ${RATINGS.join(', ')}` },
+        });
         return;
       }
       movie.rating = rating ? String(rating) : undefined;
@@ -443,19 +411,17 @@ export const updateMovie = async (
       movie.director = director ? String(director).trim() : undefined;
     if (isActive !== undefined) {
       if (typeof isActive !== 'boolean') {
-        res
-          .status(400)
-          .json({
-            success: false,
-            error: { message: 'isActive must be a boolean' },
-          });
+        res.status(400).json({
+          success: false,
+          error: { message: 'isActive must be a boolean' },
+        });
         return;
       }
       movie.isActive = isActive;
     }
 
     await movie.save();
-    res.status(200).json({ success: true, data: movie });
+    res.status(200).json({ success: true, data: { movie } });
   } catch (error: unknown) {
     console.error('Update movie error:', error);
     if (error instanceof Error && error.name === 'ValidationError') {
@@ -464,12 +430,10 @@ export const updateMovie = async (
         .json({ success: false, error: { message: error.message } });
       return;
     }
-    res
-      .status(500)
-      .json({
-        success: false,
-        error: { message: 'Server error updating movie' },
-      });
+    res.status(500).json({
+      success: false,
+      error: { message: 'Server error updating movie' },
+    });
   }
 };
 
@@ -485,12 +449,10 @@ export const deleteMovie = async (
       return;
     }
     if (req.user.role !== 'platform_admin') {
-      res
-        .status(403)
-        .json({
-          success: false,
-          error: { message: 'Access denied. Platform admin only.' },
-        });
+      res.status(403).json({
+        success: false,
+        error: { message: 'Access denied. Platform admin only.' },
+      });
       return;
     }
 
@@ -511,27 +473,23 @@ export const deleteMovie = async (
     }
 
     if (!movie.isActive) {
-      res
-        .status(409)
-        .json({
-          success: false,
-          error: { message: 'Movie is already inactive' },
-        });
+      res.status(409).json({
+        success: false,
+        error: { message: 'Movie is already inactive' },
+      });
       return;
     }
 
     movie.isActive = false;
     await movie.save();
 
-    res.status(200).json({ success: true, data: movie });
+    res.status(200).json({ success: true, data: { movie } });
   } catch (error) {
     console.error('Delete movie error:', error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        error: { message: 'Server error deleting movie' },
-      });
+    res.status(500).json({
+      success: false,
+      error: { message: 'Server error deleting movie' },
+    });
   }
 };
 
@@ -542,12 +500,10 @@ export const searchMovies = async (
   try {
     const { q } = req.query;
     if (typeof q !== 'string' || !q.trim()) {
-      res
-        .status(400)
-        .json({
-          success: false,
-          error: { message: 'q query parameter is required' },
-        });
+      res.status(400).json({
+        success: false,
+        error: { message: 'q query parameter is required' },
+      });
       return;
     }
 
@@ -572,21 +528,19 @@ export const searchMovies = async (
     const total = await Movie.countDocuments(filter);
     const pages = Math.max(1, Math.ceil(total / limit));
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        data: movies,
+    res.status(200).json({
+      success: true,
+      data: {
+        movies,
         pagination: { page, limit, total, pages },
-      });
+      },
+    });
   } catch (error) {
     console.error('Search movies error:', error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        error: { message: 'Server error searching movies' },
-      });
+    res.status(500).json({
+      success: false,
+      error: { message: 'Server error searching movies' },
+    });
   }
 };
 
