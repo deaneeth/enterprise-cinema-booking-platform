@@ -53,7 +53,10 @@ describe('Movie Model', () => {
     });
 
     it('rejects invalid genre values', async () => {
-      const m: any = new Movie({ title: 'Genre Test', genre: ['Sci-Fi'] });
+      const m: any = new Movie({
+        title: 'Genre Test',
+        genre: ['InvalidGenre'],
+      });
       await expect(m.validate()).rejects.toThrow();
     });
 

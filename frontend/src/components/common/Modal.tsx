@@ -34,7 +34,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? "modal-title" : undefined}
-        className="relative mx-4 w-full max-w-2xl transform overflow-hidden rounded-lg bg-white p-6 shadow-xl transition-all"
+        className="relative mx-4 w-full max-w-2xl max-h-[90vh] transform overflow-hidden rounded-lg bg-white p-6 shadow-xl transition-all flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between">
@@ -64,7 +64,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
           </button>
         </div>
 
-        <div className="mt-4">{children}</div>
+        <div className="mt-4 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   );

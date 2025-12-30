@@ -52,6 +52,7 @@ import Cinemas from "./pages/Cinemas";
 
 //Member 3 (Movies): Movies page route import
 import Movies from "./pages/Movies";
+import MovieDetail from "./components/movies/MovieDetail";
 // Movie detail component (route)
 // import MovieDetail from "./components/movies/MovieDetail";
 
@@ -91,6 +92,8 @@ const AppRouter: React.FC = () => {
 
           {/* TODO: Member 3 (Movies) - Add public movie browsing routes */}
           <Route path="/movies" element={<Movies />} />
+          <Route path="/movies/:id" element={<MovieDetail />} />
+
           {/* <Route path="/movies" element={<MoviesPage />} /> */}
           {/* <Route path="/movies/:id" element={<MovieDetailPage />} /> */}
 

@@ -11,9 +11,10 @@ type Movie = {
   duration?: number;
   genre?: string[];
   rating?: string;
+  trailerUrl?: string;
 };
 
-type Props = { 
+type Props = {
   movie: Movie;
   useModal?: boolean; // Option to choose modal or page
 };
@@ -26,11 +27,12 @@ const MovieCard: React.FC<Props> = ({ movie, useModal = true }) => {
       ? `${hours}h ${minutes}m`
       : `${minutes}m`
     : "N/A";
-  
+
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleViewDetails = () => {
+    console.log("MovieCard movie prop:", movie);
     if (useModal) {
       setOpen(true);
     } else {

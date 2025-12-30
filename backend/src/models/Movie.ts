@@ -5,7 +5,29 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 // Allowed values
-const GENRES = ['Action', 'Drama', 'Comedy'] as const;
+const GENRES = [
+  'Action',
+  'Adventure',
+  'Animation',
+  'Biography',
+  'Comedy',
+  'Crime',
+  'Documentary',
+  'Drama',
+  'Family',
+  'Fantasy',
+  'History',
+  'Horror',
+  'Music',
+  'Musical',
+  'Mystery',
+  'Romance',
+  'Sci-Fi',
+  'Sport',
+  'Thriller',
+  'War',
+  'Western',
+] as const;
 const LANGUAGES = ['English', 'Sinhala', 'Tamil'] as const;
 const RATINGS = ['G', 'PG', 'PG-13', 'R'] as const;
 

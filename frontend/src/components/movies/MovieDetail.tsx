@@ -15,6 +15,7 @@ type Movie = {
   posterUrl?: string;
   cast?: string[];
   director?: string;
+  trailerUrl?: string;
 };
 
 type Props = { movieId?: string };
@@ -206,16 +207,88 @@ const MovieDetail: React.FC<Props> = ({ movieId }) => {
               <h4 className="mb-1 text-sm font-semibold">Director</h4>
               <p>{movie.director || "N/A"}</p>
             </div>
-          </div>
 
-          <div className="mt-6">
-            <Link
-              to={`/showtimes?movieId=${movie._id}`}
-              className="inline-flex items-center rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-            >
-              Book Tickets
-            </Link>
+            <div>
+              <h4 className="mb-1 text-sm font-semibold">Trailer</h4>
+              {movie.trailerUrl &&
+              (movie.trailerUrl.includes("youtube.com") ||
+                movie.trailerUrl.includes("youtu.be")) ? (
+                (() => {
+                  // Robustly extract YouTube video ID from various URL formats
+                  const url = movie.trailerUrl!;
+                  let videoId = "";
+                  try {
+                    // Try to extract v param for watch URLs
+                    const u = new URL(url);
+                    if (
+                      u.hostname.includes("youtube.com") &&
+                      u.pathname === "/watch"
+                    ) {
+                      videoId = u.searchParams.get("v") || "";
+                    }
+                    // Try to extract from youtu.be short URLs
+                    else if (u.hostname === "youtu.be") {
+                      videoId = u.pathname.replace("/", "");
+                    }
+                    // Try to extract from /embed/ or /v/ URLs
+                    else {
+                      const match = url.match(/(?:embed|v)\/([\w-]{11})/);
+                      if (match && match[1]) videoId = match[1];
+                    }
+                    // Fallback: regex for any 11-char ID
+                    if (!videoId) {
+                      const match = url.match(/[\w-]{11}/);
+                      if (match) videoId = match[0];
+                    }
+                  } catch {}
+                  if (videoId) {
+                    return (
+                      <div className="w-full max-w-xl">
+                        <iframe
+                          src={`https://www.youtube.com/embed/${videoId}`}
+                          title="YouTube trailer"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="w-full max-h-64 h-64 rounded border"
+                          style={{ maxHeight: "16rem" }}
+                        ></iframe>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <a
+                        href={movie.trailerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-600 hover:underline break-all"
+                      >
+                        Watch Trailer
+                      </a>
+                    );
+                  }
+                })()
+              ) : movie.trailerUrl ? (
+                <a
+                  href={movie.trailerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-600 hover:underline break-all"
+                >
+                  Watch Trailer
+                </a>
+              ) : (
+                <span className="text-gray-500">N/A</span>
+              )}
+            </div>
           </div>
+        </div>
+        <div className="mt-6">
+          <Link
+            to={`/showtimes?movieId=${movie._id}`}
+            className="inline-flex items-center rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            Book Tickets
+          </Link>
         </div>
       </div>
     </div>

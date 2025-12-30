@@ -16,7 +16,29 @@ type Movie = {
   director?: string;
 };
 
-const GENRES = ["Action", "Drama", "Comedy"];
+const GENRES = [
+  "Action",
+  "Adventure",
+  "Animation",
+  "Biography",
+  "Comedy",
+  "Crime",
+  "Documentary",
+  "Drama",
+  "Family",
+  "Fantasy",
+  "History",
+  "Horror",
+  "Music",
+  "Musical",
+  "Mystery",
+  "Romance",
+  "Sci-Fi",
+  "Sport",
+  "Thriller",
+  "War",
+  "Western",
+];
 const LANGUAGES = ["English", "Sinhala", "Tamil"];
 const RATINGS = ["G", "PG", "PG-13", "R"];
 
