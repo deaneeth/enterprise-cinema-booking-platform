@@ -19,19 +19,37 @@ const isValidObjectId = (id: unknown): id is string => {
 
 const parseCommaList = (value: unknown): string[] => {
   if (!value) return [];
-  if (Array.isArray(value)) return value.map(String).map((s) => s.trim()).filter(Boolean);
-  if (typeof value === 'string') return value.split(',').map((s) => s.trim()).filter(Boolean);
+  if (Array.isArray(value))
+    return value
+      .map(String)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  if (typeof value === 'string')
+    return value
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
   return [];
 };
 
-export const createMovie = async (req: Request, res: Response): Promise<void> => {
+export const createMovie = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     if (!req.user) {
-      res.status(401).json({ success: false, error: { message: 'Not authenticated' } });
+      res
+        .status(401)
+        .json({ success: false, error: { message: 'Not authenticated' } });
       return;
     }
     if (req.user.role !== 'platform_admin') {
-      res.status(403).json({ success: false, error: { message: 'Access denied. Platform admin only.' } });
+      res
+        .status(403)
+        .json({
+          success: false,
+          error: { message: 'Access denied. Platform admin only.' },
+        });
       return;
     }
 
@@ -51,29 +69,72 @@ export const createMovie = async (req: Request, res: Response): Promise<void> =>
     } = req.body;
 
     if (!title || typeof title !== 'string' || !title.trim()) {
-      res.status(400).json({ success: false, error: { message: 'Title is required' } });
+      res
+        .status(400)
+        .json({ success: false, error: { message: 'Title is required' } });
       return;
     }
 
     const genreArray = parseCommaList(genre).filter((g) => GENRES.includes(g));
-    if (genre && genreArray.length === 0 && Array.isArray(genre) && genre.length > 0) {
-      res.status(400).json({ success: false, error: { message: `genre must be one of: ${GENRES.join(', ')}` } });
+    if (
+      genre &&
+      genreArray.length === 0 &&
+      Array.isArray(genre) &&
+      genre.length > 0
+    ) {
+      res
+        .status(400)
+        .json({
+          success: false,
+          error: { message: `genre must be one of: ${GENRES.join(', ')}` },
+        });
       return;
     }
 
-    if (language !== undefined && language !== null && !LANGUAGES.includes(String(language))) {
-      res.status(400).json({ success: false, error: { message: `language must be one of: ${LANGUAGES.join(', ')}` } });
+    if (
+      language !== undefined &&
+      language !== null &&
+      !LANGUAGES.includes(String(language))
+    ) {
+      res
+        .status(400)
+        .json({
+          success: false,
+          error: {
+            message: `language must be one of: ${LANGUAGES.join(', ')}`,
+          },
+        });
       return;
     }
 
-    if (rating !== undefined && rating !== null && !RATINGS.includes(String(rating))) {
-      res.status(400).json({ success: false, error: { message: `rating must be one of: ${RATINGS.join(', ')}` } });
+    if (
+      rating !== undefined &&
+      rating !== null &&
+      !RATINGS.includes(String(rating))
+    ) {
+      res
+        .status(400)
+        .json({
+          success: false,
+          error: { message: `rating must be one of: ${RATINGS.join(', ')}` },
+        });
       return;
     }
 
-    const durationNum = duration !== undefined && duration !== null ? Number(duration) : undefined;
-    if (durationNum !== undefined && (!Number.isFinite(durationNum) || durationNum < 0)) {
-      res.status(400).json({ success: false, error: { message: 'duration must be a non-negative number' } });
+    const durationNum =
+      duration !== undefined && duration !== null
+        ? Number(duration)
+        : undefined;
+    if (
+      durationNum !== undefined &&
+      (!Number.isFinite(durationNum) || durationNum < 0)
+    ) {
+      res
+        .status(400)
+        .json({
+          success: false,
+          error: { message: 'duration must be a non-negative number' },
+        });
       return;
     }
 
@@ -81,7 +142,9 @@ export const createMovie = async (req: Request, res: Response): Promise<void> =>
     if (releaseDate !== undefined && releaseDate !== null) {
       const d = new Date(releaseDate);
       if (Number.isNaN(d.getTime())) {
-        res.status(400).json({ success: false, error: { message: 'Invalid releaseDate' } });
+        res
+          .status(400)
+          .json({ success: false, error: { message: 'Invalid releaseDate' } });
         return;
       }
       release = d;
@@ -91,7 +154,8 @@ export const createMovie = async (req: Request, res: Response): Promise<void> =>
 
     const movie = await Movie.create({
       title: title.trim(),
-      description: typeof description === 'string' ? description.trim() : undefined,
+      description:
+        typeof description === 'string' ? description.trim() : undefined,
       genre: genreArray,
       language: language ? String(language) : undefined,
       duration: durationNum,
@@ -108,14 +172,24 @@ export const createMovie = async (req: Request, res: Response): Promise<void> =>
   } catch (error: unknown) {
     console.error('Create movie error:', error);
     if (error instanceof Error && error.name === 'ValidationError') {
-      res.status(400).json({ success: false, error: { message: error.message } });
+      res
+        .status(400)
+        .json({ success: false, error: { message: error.message } });
       return;
     }
-    res.status(500).json({ success: false, error: { message: 'Server error creating movie' } });
+    res
+      .status(500)
+      .json({
+        success: false,
+        error: { message: 'Server error creating movie' },
+      });
   }
 };
 
-export const getAllMovies = async (req: Request, res: Response): Promise<void> => {
+export const getAllMovies = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { genre, language, rating, q } = req.query;
     let page = req.query.page ? parseInt(String(req.query.page), 10) : 1;
@@ -132,7 +206,14 @@ export const getAllMovies = async (req: Request, res: Response): Promise<void> =
     if (language && typeof language === 'string') {
       if (LANGUAGES.includes(language)) filter.language = language;
       else {
-        res.status(400).json({ success: false, error: { message: `language must be one of: ${LANGUAGES.join(', ')}` } });
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: {
+              message: `language must be one of: ${LANGUAGES.join(', ')}`,
+            },
+          });
         return;
       }
     }
@@ -140,7 +221,12 @@ export const getAllMovies = async (req: Request, res: Response): Promise<void> =
     if (rating && typeof rating === 'string') {
       if (RATINGS.includes(rating)) filter.rating = rating;
       else {
-        res.status(400).json({ success: false, error: { message: `rating must be one of: ${RATINGS.join(', ')}` } });
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: { message: `rating must be one of: ${RATINGS.join(', ')}` },
+          });
         return;
       }
     }
@@ -152,58 +238,98 @@ export const getAllMovies = async (req: Request, res: Response): Promise<void> =
     }
 
     const skip = (page - 1) * limit;
-    const movies = await Movie.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
+    const movies = await Movie.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
     const total = await Movie.countDocuments(filter);
     const pages = Math.max(1, Math.ceil(total / limit));
 
-    res.status(200).json({ success: true, data: movies, pagination: { page, limit, total, pages } });
+    res
+      .status(200)
+      .json({
+        success: true,
+        data: movies,
+        pagination: { page, limit, total, pages },
+      });
   } catch (error) {
     console.error('Get all movies error:', error);
-    res.status(500).json({ success: false, error: { message: 'Server error fetching movies' } });
+    res
+      .status(500)
+      .json({
+        success: false,
+        error: { message: 'Server error fetching movies' },
+      });
   }
 };
 
-export const getMovieById = async (req: Request, res: Response): Promise<void> => {
+export const getMovieById = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { id } = req.params;
     if (!isValidObjectId(id)) {
-      res.status(400).json({ success: false, error: { message: 'Invalid movie id' } });
+      res
+        .status(400)
+        .json({ success: false, error: { message: 'Invalid movie id' } });
       return;
     }
 
     const movie = await Movie.findById(id);
     if (!movie || !movie.isActive) {
-      res.status(404).json({ success: false, error: { message: 'Movie not found' } });
+      res
+        .status(404)
+        .json({ success: false, error: { message: 'Movie not found' } });
       return;
     }
 
     res.status(200).json({ success: true, data: movie });
   } catch (error) {
     console.error('Get movie by id error:', error);
-    res.status(500).json({ success: false, error: { message: 'Server error fetching movie' } });
+    res
+      .status(500)
+      .json({
+        success: false,
+        error: { message: 'Server error fetching movie' },
+      });
   }
 };
 
-export const updateMovie = async (req: Request, res: Response): Promise<void> => {
+export const updateMovie = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     if (!req.user) {
-      res.status(401).json({ success: false, error: { message: 'Not authenticated' } });
+      res
+        .status(401)
+        .json({ success: false, error: { message: 'Not authenticated' } });
       return;
     }
     if (req.user.role !== 'platform_admin') {
-      res.status(403).json({ success: false, error: { message: 'Access denied. Platform admin only.' } });
+      res
+        .status(403)
+        .json({
+          success: false,
+          error: { message: 'Access denied. Platform admin only.' },
+        });
       return;
     }
 
     const { id } = req.params;
     if (!isValidObjectId(id)) {
-      res.status(400).json({ success: false, error: { message: 'Invalid movie id' } });
+      res
+        .status(400)
+        .json({ success: false, error: { message: 'Invalid movie id' } });
       return;
     }
 
     const movie = await Movie.findById(id);
     if (!movie) {
-      res.status(404).json({ success: false, error: { message: 'Movie not found' } });
+      res
+        .status(404)
+        .json({ success: false, error: { message: 'Movie not found' } });
       return;
     }
 
@@ -224,22 +350,38 @@ export const updateMovie = async (req: Request, res: Response): Promise<void> =>
 
     if (title !== undefined) {
       if (!title || typeof title !== 'string' || !title.trim()) {
-        res.status(400).json({ success: false, error: { message: 'title must be a non-empty string' } });
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: { message: 'title must be a non-empty string' },
+          });
         return;
       }
       movie.title = title.trim();
     }
 
-    if (description !== undefined) movie.description = typeof description === 'string' ? description.trim() : undefined;
+    if (description !== undefined)
+      movie.description =
+        typeof description === 'string' ? description.trim() : undefined;
 
     if (genre !== undefined) {
-      const genreArray = parseCommaList(genre).filter((g) => GENRES.includes(g));
+      const genreArray = parseCommaList(genre).filter((g) =>
+        GENRES.includes(g)
+      );
       movie.genre = genreArray;
     }
 
     if (language !== undefined) {
       if (language !== null && !LANGUAGES.includes(String(language))) {
-        res.status(400).json({ success: false, error: { message: `language must be one of: ${LANGUAGES.join(', ')}` } });
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: {
+              message: `language must be one of: ${LANGUAGES.join(', ')}`,
+            },
+          });
         return;
       }
       movie.language = language ? String(language) : undefined;
@@ -247,8 +389,16 @@ export const updateMovie = async (req: Request, res: Response): Promise<void> =>
 
     if (duration !== undefined) {
       const durationNum = duration !== null ? Number(duration) : undefined;
-      if (durationNum !== undefined && (!Number.isFinite(durationNum) || durationNum < 0)) {
-        res.status(400).json({ success: false, error: { message: 'duration must be a non-negative number' } });
+      if (
+        durationNum !== undefined &&
+        (!Number.isFinite(durationNum) || durationNum < 0)
+      ) {
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: { message: 'duration must be a non-negative number' },
+          });
         return;
       }
       movie.duration = durationNum;
@@ -259,7 +409,12 @@ export const updateMovie = async (req: Request, res: Response): Promise<void> =>
       else {
         const d = new Date(releaseDate);
         if (Number.isNaN(d.getTime())) {
-          res.status(400).json({ success: false, error: { message: 'Invalid releaseDate' } });
+          res
+            .status(400)
+            .json({
+              success: false,
+              error: { message: 'Invalid releaseDate' },
+            });
           return;
         }
         movie.releaseDate = d;
@@ -268,19 +423,32 @@ export const updateMovie = async (req: Request, res: Response): Promise<void> =>
 
     if (rating !== undefined) {
       if (rating !== null && !RATINGS.includes(String(rating))) {
-        res.status(400).json({ success: false, error: { message: `rating must be one of: ${RATINGS.join(', ')}` } });
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: { message: `rating must be one of: ${RATINGS.join(', ')}` },
+          });
         return;
       }
       movie.rating = rating ? String(rating) : undefined;
     }
 
-    if (posterUrl !== undefined) movie.posterUrl = posterUrl ? String(posterUrl).trim() : undefined;
-    if (trailerUrl !== undefined) movie.trailerUrl = trailerUrl ? String(trailerUrl).trim() : undefined;
+    if (posterUrl !== undefined)
+      movie.posterUrl = posterUrl ? String(posterUrl).trim() : undefined;
+    if (trailerUrl !== undefined)
+      movie.trailerUrl = trailerUrl ? String(trailerUrl).trim() : undefined;
     if (cast !== undefined) movie.cast = parseCommaList(cast);
-    if (director !== undefined) movie.director = director ? String(director).trim() : undefined;
+    if (director !== undefined)
+      movie.director = director ? String(director).trim() : undefined;
     if (isActive !== undefined) {
       if (typeof isActive !== 'boolean') {
-        res.status(400).json({ success: false, error: { message: 'isActive must be a boolean' } });
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: { message: 'isActive must be a boolean' },
+          });
         return;
       }
       movie.isActive = isActive;
@@ -291,38 +459,64 @@ export const updateMovie = async (req: Request, res: Response): Promise<void> =>
   } catch (error: unknown) {
     console.error('Update movie error:', error);
     if (error instanceof Error && error.name === 'ValidationError') {
-      res.status(400).json({ success: false, error: { message: error.message } });
+      res
+        .status(400)
+        .json({ success: false, error: { message: error.message } });
       return;
     }
-    res.status(500).json({ success: false, error: { message: 'Server error updating movie' } });
+    res
+      .status(500)
+      .json({
+        success: false,
+        error: { message: 'Server error updating movie' },
+      });
   }
 };
 
-export const deleteMovie = async (req: Request, res: Response): Promise<void> => {
+export const deleteMovie = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     if (!req.user) {
-      res.status(401).json({ success: false, error: { message: 'Not authenticated' } });
+      res
+        .status(401)
+        .json({ success: false, error: { message: 'Not authenticated' } });
       return;
     }
     if (req.user.role !== 'platform_admin') {
-      res.status(403).json({ success: false, error: { message: 'Access denied. Platform admin only.' } });
+      res
+        .status(403)
+        .json({
+          success: false,
+          error: { message: 'Access denied. Platform admin only.' },
+        });
       return;
     }
 
     const { id } = req.params;
     if (!isValidObjectId(id)) {
-      res.status(400).json({ success: false, error: { message: 'Invalid movie id' } });
+      res
+        .status(400)
+        .json({ success: false, error: { message: 'Invalid movie id' } });
       return;
     }
 
     const movie = await Movie.findById(id);
     if (!movie) {
-      res.status(404).json({ success: false, error: { message: 'Movie not found' } });
+      res
+        .status(404)
+        .json({ success: false, error: { message: 'Movie not found' } });
       return;
     }
 
     if (!movie.isActive) {
-      res.status(409).json({ success: false, error: { message: 'Movie is already inactive' } });
+      res
+        .status(409)
+        .json({
+          success: false,
+          error: { message: 'Movie is already inactive' },
+        });
       return;
     }
 
@@ -332,15 +526,28 @@ export const deleteMovie = async (req: Request, res: Response): Promise<void> =>
     res.status(200).json({ success: true, data: movie });
   } catch (error) {
     console.error('Delete movie error:', error);
-    res.status(500).json({ success: false, error: { message: 'Server error deleting movie' } });
+    res
+      .status(500)
+      .json({
+        success: false,
+        error: { message: 'Server error deleting movie' },
+      });
   }
 };
 
-export const searchMovies = async (req: Request, res: Response): Promise<void> => {
+export const searchMovies = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { q } = req.query;
     if (typeof q !== 'string' || !q.trim()) {
-      res.status(400).json({ success: false, error: { message: 'q query parameter is required' } });
+      res
+        .status(400)
+        .json({
+          success: false,
+          error: { message: 'q query parameter is required' },
+        });
       return;
     }
 
@@ -351,7 +558,10 @@ export const searchMovies = async (req: Request, res: Response): Promise<void> =
     if (limit > 100) limit = 100;
 
     const term = q.trim();
-    const filter: Record<string, unknown> = { $text: { $search: term }, isActive: true };
+    const filter: Record<string, unknown> = {
+      $text: { $search: term },
+      isActive: true,
+    };
 
     const skip = (page - 1) * limit;
     const movies = await Movie.find(filter, { score: { $meta: 'textScore' } })
@@ -362,12 +572,22 @@ export const searchMovies = async (req: Request, res: Response): Promise<void> =
     const total = await Movie.countDocuments(filter);
     const pages = Math.max(1, Math.ceil(total / limit));
 
-    res.status(200).json({ success: true, data: movies, pagination: { page, limit, total, pages } });
+    res
+      .status(200)
+      .json({
+        success: true,
+        data: movies,
+        pagination: { page, limit, total, pages },
+      });
   } catch (error) {
     console.error('Search movies error:', error);
-    res.status(500).json({ success: false, error: { message: 'Server error searching movies' } });
+    res
+      .status(500)
+      .json({
+        success: false,
+        error: { message: 'Server error searching movies' },
+      });
   }
 };
 
 export default undefined;
-

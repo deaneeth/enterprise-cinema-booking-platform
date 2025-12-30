@@ -49,21 +49,35 @@ router.get('/movies/:id', getMovieById);
  * @desc    Create a new movie
  * @access  Private (Platform Admin only)
  */
-router.post('/movies', authenticate, requireRole('platform_admin'), createMovie);
+router.post(
+  '/movies',
+  authenticate,
+  requireRole('platform_admin'),
+  createMovie
+);
 
 /**
  * @route   PUT /api/movies/:id
  * @desc    Update a movie
  * @access  Private (Platform Admin only)
  */
-router.put('/movies/:id', authenticate, requireRole('platform_admin'), updateMovie);
+router.put(
+  '/movies/:id',
+  authenticate,
+  requireRole('platform_admin'),
+  updateMovie
+);
 
 /**
  * @route   DELETE /api/movies/:id
  * @desc    Soft delete a movie (set isActive=false)
  * @access  Private (Platform Admin only)
  */
-router.delete('/movies/:id', authenticate, requireRole('platform_admin'), deleteMovie);
+router.delete(
+  '/movies/:id',
+  authenticate,
+  requireRole('platform_admin'),
+  deleteMovie
+);
 
 export default router;
-
