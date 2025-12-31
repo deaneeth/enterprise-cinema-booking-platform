@@ -1,46 +1,8 @@
 import React, { useEffect, useState } from "react";
 import MovieCard from "./MovieCard";
 import api, { ApiResponse, getErrorMessage } from "../../services/api";
-
-type Movie = {
-  _id: string;
-  title: string;
-  description?: string;
-  genre?: string[];
-  language?: string;
-  duration?: number;
-  releaseDate?: string;
-  rating?: string;
-  posterUrl?: string;
-  cast?: string[];
-  director?: string;
-};
-
-const GENRES = [
-  "Action",
-  "Adventure",
-  "Animation",
-  "Biography",
-  "Comedy",
-  "Crime",
-  "Documentary",
-  "Drama",
-  "Family",
-  "Fantasy",
-  "History",
-  "Horror",
-  "Music",
-  "Musical",
-  "Mystery",
-  "Romance",
-  "Sci-Fi",
-  "Sport",
-  "Thriller",
-  "War",
-  "Western",
-];
-const LANGUAGES = ["English", "Sinhala", "Tamil"];
-const RATINGS = ["G", "PG", "PG-13", "R"];
+import { Movie } from "../../types/Movie";
+import { GENRES, LANGUAGES, RATINGS } from "../../constants/movie";
 
 const MovieList: React.FC = () => {
   const [movies, setMovies] = useState<Movie[]>([]);

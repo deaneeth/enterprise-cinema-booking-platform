@@ -3,16 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Modal from "../common/Modal";
 import Button from "../common/Button";
 import MovieDetail from "./MovieDetail";
-
-type Movie = {
-  _id: string;
-  title: string;
-  posterUrl?: string;
-  duration?: number;
-  genre?: string[];
-  rating?: string;
-  trailerUrl?: string;
-};
+import { Movie } from "../../types/Movie";
 
 type Props = {
   movie: Movie;
@@ -32,7 +23,6 @@ const MovieCard: React.FC<Props> = ({ movie, useModal = true }) => {
   const navigate = useNavigate();
 
   const handleViewDetails = () => {
-    console.log("MovieCard movie prop:", movie);
     if (useModal) {
       setOpen(true);
     } else {
