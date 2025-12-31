@@ -238,7 +238,7 @@ export const getAllMovies = async (
 
     if (q && typeof q === 'string' && q.trim()) {
       // simple case-insensitive substring search on title
-      const term = q.trim().replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+      const term = q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       filter['title'] = { $regex: term, $options: 'i' };
     }
 
