@@ -48,18 +48,6 @@ export const env: Environment = {
   MONGODB_URI: getRequiredEnv('MONGODB_URI'),
   JWT_SECRET: getRequiredEnv('JWT_SECRET'),
 
-  // test
-  // Allow tests to run without strict env vars; tests will provide their own URI
-  // Consider Jest environment (JEST_WORKER_ID) as test as well
-  // MONGODB_URI:
-  //   process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined
-  //     ? getOptionalEnv('MONGODB_URI', '')
-  //     : getRequiredEnv('MONGODB_URI'),
-  // JWT_SECRET:
-  //   process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined
-  //     ? getOptionalEnv('JWT_SECRET', 'test-secret')
-  //     : getRequiredEnv('JWT_SECRET'),
-
   JWT_EXPIRE: getOptionalEnv('JWT_EXPIRE', '24h'),
   FRONTEND_URL: getOptionalEnv('FRONTEND_URL', 'http://localhost:3000'),
 };
