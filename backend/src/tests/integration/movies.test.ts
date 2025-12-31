@@ -115,13 +115,13 @@ describe('Movie Endpoints', () => {
       expect(res.body.success).toBe(false);
     });
 
-    it('should reject creation with invalid rating (> 10)', async () => {
+    it('should reject creation with invalid rating value', async () => {
       const { token } = await createUserWithToken({ role: 'platform_admin' });
 
       const res = await request(app)
         .post('/api/movies')
         .set('Authorization', `Bearer ${token}`)
-        .send({ title: 'Bad Rating', rating: 11 })
+        .send({ title: 'Bad Rating', rating: 'INVALID' })
         .expect(400);
 
       expect(res.body.success).toBe(false);

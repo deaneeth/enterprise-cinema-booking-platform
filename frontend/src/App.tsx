@@ -49,12 +49,11 @@ import Profile from "./pages/Profile";
 
 // Member 2 (Cinemas): Cinemas page route import
 import Cinemas from "./pages/Cinemas";
+import CinemaDetail from "./components/cinemas/CinemaDetail";
 
 //Member 3 (Movies): Movies page route import
 import Movies from "./pages/Movies";
 import MovieDetail from "./components/movies/MovieDetail";
-// Movie detail component (route)
-// import MovieDetail from "./components/movies/MovieDetail";
 
 // Common Layout Components
 //Navbar component (route)
@@ -97,9 +96,9 @@ const AppRouter: React.FC = () => {
           {/* <Route path="/movies" element={<MoviesPage />} /> */}
           {/* <Route path="/movies/:id" element={<MovieDetailPage />} /> */}
 
-          {/* TODO: Member 2 (Cinemas) - Add public cinema browsing routes */}
+          {/* Member 2 (Cinemas) - Cinema browsing routes */}
           <Route path="/cinemas" element={<Cinemas />} />
-          {/* <Route path="/cinemas/:id" element={<CinemaDetailPage />} /> */}
+          <Route path="/cinemas/:id" element={<CinemaDetail />} />
 
           {/* ============================================================= */}
           {/* PROTECTED ROUTES - Authentication required */}
