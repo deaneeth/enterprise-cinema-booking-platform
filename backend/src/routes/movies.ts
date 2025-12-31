@@ -8,6 +8,8 @@ import {
   deleteMovie,
   getAllMovies,
   getMovieById,
+  getMovieShowtimes,
+  getMovieReviews,
   searchMovies,
   updateMovie,
 } from '../controllers/movieController';
@@ -39,6 +41,20 @@ router.get('/movies/search', searchMovies);
  * @access  Public
  */
 router.get('/movies/:id', getMovieById);
+
+/**
+ * @route   GET /api/movies/:id/showtimes
+ * @desc    Get all showtimes for a movie
+ * @access  Public
+ */
+router.get('/movies/:id/showtimes', getMovieShowtimes);
+
+/**
+ * @route   GET /api/movies/:id/reviews
+ * @desc    Get all reviews for a movie
+ * @access  Public
+ */
+router.get('/movies/:id/reviews', getMovieReviews);
 
 // ============================================
 // PROTECTED ROUTES (Platform Admin)

@@ -7,9 +7,30 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Movie from '../models/Movie';
-import '../middlewares/auth';
 
-const GENRES = ['Action', 'Drama', 'Comedy'];
+const GENRES = [
+  'Action',
+  'Adventure',
+  'Animation',
+  'Biography',
+  'Comedy',
+  'Crime',
+  'Documentary',
+  'Drama',
+  'Family',
+  'Fantasy',
+  'History',
+  'Horror',
+  'Music',
+  'Musical',
+  'Mystery',
+  'Romance',
+  'Sci-Fi',
+  'Sport',
+  'Thriller',
+  'War',
+  'Western',
+];
 const LANGUAGES = ['English', 'Sinhala', 'Tamil'];
 const RATINGS = ['G', 'PG', 'PG-13', 'R'];
 
@@ -544,4 +565,132 @@ export const searchMovies = async (
   }
 };
 
-export default undefined;
+/**
+ * Get all showtimes for a specific movie
+ * GET /api/movies/:id/showtimes
+ * Note: Depends on Showtime model (Member 4)
+ */
+export const getMovieShowtimes = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      res
+        .status(400)
+        .json({ success: false, error: { message: 'Invalid movie id' } });
+      return;
+    }
+
+    // Check movie exists and is active
+    const movie = await Movie.findById(id);
+    if (!movie || !movie.isActive) {
+      res
+        .status(404)
+        .json({ success: false, error: { message: 'Movie not found' } });
+      return;
+    }
+
+    // Pagination
+    let page = req.query.page ? parseInt(String(req.query.page), 10) : 1;
+    let limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 20;
+    if (Number.isNaN(page) || page < 1) page = 1;
+    if (Number.isNaN(limit) || limit < 1) limit = 20;
+    if (limit > 100) limit = 100;
+
+    // TODO: Query Showtime model when Member 4 implements it
+    // For now, return empty array to satisfy API contract
+    // const Showtime = mongoose.model('Showtime');
+    // const skip = (page - 1) * limit;
+    // const showtimes = await Showtime.find({ movieId: id, isActive: true })
+    //   .populate('cinemaId')
+    //   .sort({ startTime: 1 })
+    //   .skip(skip)
+    //   .limit(limit);
+    // const total = await Showtime.countDocuments({ movieId: id, isActive: true });
+
+    const showtimes: unknown[] = [];
+    const total = 0;
+    const pages = Math.max(1, Math.ceil(total / limit));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        showtimes,
+        pagination: { page, limit, total, pages },
+      },
+    });
+  } catch (error) {
+    console.error('Get movie showtimes error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Server error fetching showtimes' },
+    });
+  }
+};
+
+/**
+ * Get all reviews for a specific movie
+ * GET /api/movies/:id/reviews
+ * Note: Depends on Review model (Member 8)
+ */
+export const getMovieReviews = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      res
+        .status(400)
+        .json({ success: false, error: { message: 'Invalid movie id' } });
+      return;
+    }
+
+    // Check movie exists and is active
+    const movie = await Movie.findById(id);
+    if (!movie || !movie.isActive) {
+      res
+        .status(404)
+        .json({ success: false, error: { message: 'Movie not found' } });
+      return;
+    }
+
+    // Pagination
+    let page = req.query.page ? parseInt(String(req.query.page), 10) : 1;
+    let limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 20;
+    if (Number.isNaN(page) || page < 1) page = 1;
+    if (Number.isNaN(limit) || limit < 1) limit = 20;
+    if (limit > 100) limit = 100;
+
+    // TODO: Query Review model when Member 8 implements it
+    // For now, return empty array to satisfy API contract
+    // const Review = mongoose.model('Review');
+    // const skip = (page - 1) * limit;
+    // const reviews = await Review.find({ targetType: 'movie', targetId: id, isActive: true })
+    //   .populate('userId', 'firstName lastName')
+    //   .sort({ createdAt: -1 })
+    //   .skip(skip)
+    //   .limit(limit);
+    // const total = await Review.countDocuments({ targetType: 'movie', targetId: id, isActive: true });
+
+    const reviews: unknown[] = [];
+    const total = 0;
+    const pages = Math.max(1, Math.ceil(total / limit));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        reviews,
+        pagination: { page, limit, total, pages },
+      },
+    });
+  } catch (error) {
+    console.error('Get movie reviews error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Server error fetching reviews' },
+    });
+  }
+};
