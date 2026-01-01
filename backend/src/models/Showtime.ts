@@ -68,13 +68,16 @@ ShowtimeSchema.methods.isBookable = function (): boolean {
 // Indexes
 ShowtimeSchema.index({ movieId: 1, cinemaId: 1, date: 1 });
 
-export const Showtime: Model<ShowtimeDocument> = mongoose.model<ShowtimeDocument>(
-  'Showtime',
-  ShowtimeSchema
-);
+// export const Showtime: Model<ShowtimeDocument> = mongoose.model<ShowtimeDocument>(
+//   'Showtime',
+//   ShowtimeSchema
+// );
 
+// const Cinema = mongoose.model<ICinema>('Cinema', CinemaSchema);
 
+const Showtime = mongoose.model<ShowtimeDocument>('Showtime', ShowtimeSchema);
 
+export default Showtime;
 
 
 
