@@ -6,33 +6,16 @@
 
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import Movie from '../models/Movie';
+import Movie, {
+  GENRES as GENRES_CONST,
+  LANGUAGES as LANGUAGES_CONST,
+  RATINGS as RATINGS_CONST,
+} from '../models/Movie';
 
-const GENRES = [
-  'Action',
-  'Adventure',
-  'Animation',
-  'Biography',
-  'Comedy',
-  'Crime',
-  'Documentary',
-  'Drama',
-  'Family',
-  'Fantasy',
-  'History',
-  'Horror',
-  'Music',
-  'Musical',
-  'Mystery',
-  'Romance',
-  'Sci-Fi',
-  'Sport',
-  'Thriller',
-  'War',
-  'Western',
-];
-const LANGUAGES = ['English', 'Sinhala', 'Tamil'];
-const RATINGS = ['G', 'PG', 'PG-13', 'R'];
+// Cast to string[] for .includes() compatibility
+const GENRES = GENRES_CONST as readonly string[];
+const LANGUAGES = LANGUAGES_CONST as readonly string[];
+const RATINGS = RATINGS_CONST as readonly string[];
 
 const isValidObjectId = (id: unknown): id is string => {
   return typeof id === 'string' && mongoose.isValidObjectId(id);

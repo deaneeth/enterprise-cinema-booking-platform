@@ -4,8 +4,8 @@
 
 import mongoose, { Document, Schema } from 'mongoose';
 
-// Allowed values
-const GENRES = [
+// Allowed values - exported for reuse in controller
+export const GENRES = [
   'Action',
   'Adventure',
   'Animation',
@@ -28,8 +28,8 @@ const GENRES = [
   'War',
   'Western',
 ] as const;
-const LANGUAGES = ['English', 'Sinhala', 'Tamil'] as const;
-const RATINGS = ['G', 'PG', 'PG-13', 'R'] as const;
+export const LANGUAGES = ['English', 'Sinhala', 'Tamil'] as const;
+export const RATINGS = ['G', 'PG', 'PG-13', 'R'] as const;
 
 export interface IMovie extends Document {
   title: string;
