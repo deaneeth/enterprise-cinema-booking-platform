@@ -127,7 +127,9 @@ describe('Cinema Endpoints', () => {
         .expect(400);
 
       expect(res.body.success).toBe(false);
-      expect(res.body.error.message).toContain('lat must be between -90 and 90');
+      expect(res.body.error.message).toContain(
+        'lat must be between -90 and 90'
+      );
     });
 
     it('should reject creation with invalid latitude (< -90)', async () => {
@@ -148,7 +150,9 @@ describe('Cinema Endpoints', () => {
         .expect(400);
 
       expect(res.body.success).toBe(false);
-      expect(res.body.error.message).toContain('lat must be between -90 and 90');
+      expect(res.body.error.message).toContain(
+        'lat must be between -90 and 90'
+      );
     });
 
     it('should reject creation with invalid longitude (> 180)', async () => {
@@ -169,7 +173,9 @@ describe('Cinema Endpoints', () => {
         .expect(400);
 
       expect(res.body.success).toBe(false);
-      expect(res.body.error.message).toContain('lng must be between -180 and 180');
+      expect(res.body.error.message).toContain(
+        'lng must be between -180 and 180'
+      );
     });
 
     it('should reject creation with invalid longitude (< -180)', async () => {
@@ -190,7 +196,9 @@ describe('Cinema Endpoints', () => {
         .expect(400);
 
       expect(res.body.success).toBe(false);
-      expect(res.body.error.message).toContain('lng must be between -180 and 180');
+      expect(res.body.error.message).toContain(
+        'lng must be between -180 and 180'
+      );
     });
 
     it('should reject creation with non-numeric latitude', async () => {

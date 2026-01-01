@@ -1,13 +1,9 @@
 import React from "react";
 import CinemaList from "../components/cinemas/CinemaList";
-import Navbar from "../components/common/Navbar";
-import Footer from "../components/common/Footer";
 
 const Cinemas: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navbar />
-
       <main className="mx-auto max-w-6xl px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">All Cinemas</h1>
@@ -28,8 +24,6 @@ const Cinemas: React.FC = () => {
           </section>
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 };

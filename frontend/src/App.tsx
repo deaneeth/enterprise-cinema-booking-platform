@@ -49,6 +49,17 @@ import Profile from "./pages/Profile";
 
 // Member 2 (Cinemas): Cinemas page route import
 import Cinemas from "./pages/Cinemas";
+import CinemaDetail from "./components/cinemas/CinemaDetail";
+
+//Member 3 (Movies): Movies page route import
+import Movies from "./pages/Movies";
+import MovieDetail from "./components/movies/MovieDetail";
+
+// Common Layout Components
+//Navbar component (route)
+import Navbar from "./components/common/Navbar";
+// Footer component (route)
+import Footer from "./components/common/Footer";
 
 /**
  * Router component that sets up navigation callback
@@ -66,80 +77,92 @@ const AppRouter: React.FC = () => {
   }, [navigate]);
 
   return (
-    <Routes>
-      {/* ============================================================= */}
-      {/* PUBLIC ROUTES - No authentication required */}
-      {/* ============================================================= */}
+    <>
+      <Navbar />
+      <main className="min-h-screen bg-gray-100">
+        <Routes>
+          {/* ============================================================= */}
+          {/* PUBLIC ROUTES - No authentication required */}
+          {/* ============================================================= */}
 
-      {/* Member 1: Auth Routes */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+          {/* Member 1: Auth Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
-      {/* TODO: Member 3 (Movies) - Add public movie browsing routes */}
-      {/* <Route path="/movies" element={<MoviesPage />} /> */}
-      {/* <Route path="/movies/:id" element={<MovieDetailPage />} /> */}
+          {/* TODO: Member 3 (Movies) - Add public movie browsing routes */}
+          <Route path="/movies" element={<Movies />} />
+          <Route path="/movies/:id" element={<MovieDetail />} />
 
-      {/* TODO: Member 2 (Cinemas) - Add public cinema browsing routes */}
-      <Route path="/cinemas" element={<Cinemas />} />
-      {/* <Route path="/cinemas/:id" element={<CinemaDetailPage />} /> */}
+          {/* <Route path="/movies" element={<MoviesPage />} /> */}
+          {/* <Route path="/movies/:id" element={<MovieDetailPage />} /> */}
 
-      {/* ============================================================= */}
-      {/* PROTECTED ROUTES - Authentication required */}
-      {/* ============================================================= */}
+          {/* Member 2 (Cinemas) - Cinema browsing routes */}
+          <Route path="/cinemas" element={<Cinemas />} />
+          <Route path="/cinemas/:id" element={<CinemaDetail />} />
 
-      {/* Member 1: Profile Route */}
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <Profile />
-          </ProtectedRoute>
-        }
-      />
+          {/* ============================================================= */}
+          {/* PROTECTED ROUTES - Authentication required */}
+          {/* ============================================================= */}
 
-      {/* TODO: Member 5 (Bookings) - Add booking routes */}
-      {/* <Route path="/bookings" element={<ProtectedRoute><BookingsPage /></ProtectedRoute>} /> */}
-      {/* <Route path="/bookings/:id" element={<ProtectedRoute><BookingDetailPage /></ProtectedRoute>} /> */}
+          {/* Member 1: Profile Route */}
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
 
-      {/* TODO: Member 7 (Payments) - Add payment routes */}
-      {/* <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} /> */}
+          {/* TODO: Member 5 (Bookings) - Add booking routes */}
+          {/* <Route path="/bookings" element={<ProtectedRoute><BookingsPage /></ProtectedRoute>} /> */}
+          {/* <Route path="/bookings/:id" element={<ProtectedRoute><BookingDetailPage /></ProtectedRoute>} /> */}
 
-      {/* ============================================================= */}
-      {/* ADMIN ROUTES - Admin role required */}
-      {/* ============================================================= */}
+          {/* TODO: Member 7 (Payments) - Add payment routes */}
+          {/* <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} /> */}
 
-      {/* TODO: Member 2 (Cinemas) - Add cinema admin routes */}
-      {/* <Route path="/admin/cinemas" element={<ProtectedRoute allowedRoles={["cinema_admin"]}><CinemaAdminPage /></ProtectedRoute>} /> */}
+          {/* ============================================================= */}
+          {/* ADMIN ROUTES - Admin role required */}
+          {/* ============================================================= */}
 
-      {/* TODO: Member 4 (Showtimes) - Add showtime management routes */}
-      {/* <Route path="/admin/showtimes" element={<ProtectedRoute allowedRoles={["cinema_admin"]}><ShowtimeAdminPage /></ProtectedRoute>} /> */}
+          {/* TODO: Member 2 (Cinemas) - Add cinema admin routes */}
+          {/* <Route path="/admin/cinemas" element={<ProtectedRoute allowedRoles={["cinema_admin"]}><CinemaAdminPage /></ProtectedRoute>} /> */}
 
-      {/* ============================================================= */}
-      {/* DEFAULT ROUTES */}
-      {/* ============================================================= */}
+          {/* TODO: Member 4 (Showtimes) - Add showtime management routes */}
+          {/* <Route path="/admin/showtimes" element={<ProtectedRoute allowedRoles={["cinema_admin"]}><ShowtimeAdminPage /></ProtectedRoute>} /> */}
 
-      {/* Home page - redirect to login or movies page */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
+          {/* ============================================================= */}
+          {/* DEFAULT ROUTES */}
+          {/* ============================================================= */}
 
-      {/* 404 - Catch all unmatched routes */}
-      <Route
-        path="*"
-        element={
-          <div className="min-h-screen flex items-center justify-center bg-gray-100">
-            <div className="text-center">
-              <h1 className="text-6xl font-bold text-gray-300">404</h1>
-              <p className="text-xl text-gray-600 mt-4">Page not found</p>
-              <Link
-                to="/login"
-                className="mt-6 inline-block px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-              >
-                Go Home
-              </Link>
-            </div>
-          </div>
-        }
-      />
-    </Routes>
+          {/* Home page - redirect to login or movies page */}
+          {/* <Route path="/" element={<Navigate to="/login" replace />} /> */}
+          <Route path="/" element={<Navigate to="/movies" replace />} />
+
+          {/* 404 - Catch all unmatched routes */}
+          <Route
+            path="*"
+            element={
+              <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                <div className="text-center">
+                  <h1 className="text-6xl font-bold text-gray-300">404</h1>
+                  <p className="text-xl text-gray-600 mt-4">Page not found</p>
+                  <Link
+                    // to="/login"
+                    to="/movies"
+                    className="mt-6 inline-block px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                  >
+                    {/* Go Home */}
+                    Browse Movies
+                  </Link>
+                </div>
+              </div>
+            }
+          />
+        </Routes>
+      </main>
+      <Footer />
+    </>
   );
 };
 

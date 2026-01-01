@@ -47,6 +47,7 @@ export const env: Environment = {
   PORT: parseInt(getOptionalEnv('PORT', '5000'), 10),
   MONGODB_URI: getRequiredEnv('MONGODB_URI'),
   JWT_SECRET: getRequiredEnv('JWT_SECRET'),
+
   JWT_EXPIRE: getOptionalEnv('JWT_EXPIRE', '24h'),
   FRONTEND_URL: getOptionalEnv('FRONTEND_URL', 'http://localhost:3000'),
 };
