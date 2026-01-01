@@ -127,11 +127,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker images
-        run: docker-compose build
+        run: docker compose build
 
       - name: Verify Docker containers
         run: |
-          docker-compose up -d
+          docker compose up -d
           sleep 10
-          docker-compose ps
-          docker-compose down
+          docker compose ps
+          docker compose down
+
