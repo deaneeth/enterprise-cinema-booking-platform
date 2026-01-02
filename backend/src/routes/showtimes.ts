@@ -15,6 +15,7 @@ import {
 } from '../controllers/showtimeController';
 import { authenticate, requireRole } from '../middlewares/auth';
 
+
 const router = Router();
 
 // ============================================
@@ -35,12 +36,12 @@ router.get('/showtimes', getAllShowtimes);
  */
 router.get('/showtimes/:id', getShowtimeById);
 
-/**
- * @route   GET /api/movies/:movieId/showtimes
- * @desc    Get all showtimes for a movie (optional date range filter)
- * @access  Public
- */
-router.get('/movies/:movieId/showtimes', getShowtimesByMovie);
+// /**
+//  * @route   GET /api/movies/:movieId/showtimes
+//  * @desc    Get all showtimes for a movie (optional date range filter)
+//  * @access  Public
+//  */
+// router.get('/movies/:movieId/showtimes', getShowtimesByMovie);
 
 /**
  * @route   GET /api/cinemas/:cinemaId/showtimes
@@ -48,6 +49,13 @@ router.get('/movies/:movieId/showtimes', getShowtimesByMovie);
  * @access  Public
  */
 router.get('/cinemas/:cinemaId/showtimes', getShowtimesByCinema);
+
+
+router.get('/showtimes', getAllShowtimes);
+router.get('/showtimes/:id', getShowtimeById);
+router.get('/movies/:movieId/showtimes', getShowtimesByMovie);
+router.get('/cinemas/:cinemaId/showtimes', getShowtimesByCinema);
+
 
 // ============================================
 // PROTECTED ROUTES (Cinema Admin)
@@ -61,7 +69,7 @@ router.get('/cinemas/:cinemaId/showtimes', getShowtimesByCinema);
 router.post(
   '/showtimes',
   authenticate,
-  requireRole('cinema_admin'),
+  requireRole('cinema_admin', 'platform_admin'),
   createShowtime
 );
 
@@ -73,7 +81,7 @@ router.post(
 router.put(
   '/showtimes/:id',
   authenticate,
-  requireRole('cinema_admin'),
+  requireRole('cinema_admin', 'platform_admin'),
   updateShowtime
 );
 
@@ -85,7 +93,7 @@ router.put(
 router.delete(
   '/showtimes/:id',
   authenticate,
-  requireRole('cinema_admin'),
+  requireRole('cinema_admin', 'platform_admin'),
   deleteShowtime
 );
 
