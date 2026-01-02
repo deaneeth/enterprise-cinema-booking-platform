@@ -79,5 +79,3 @@ const Showtime = mongoose.model<ShowtimeDocument>('Showtime', ShowtimeSchema);
 
 export default Showtime;
 
-
-
