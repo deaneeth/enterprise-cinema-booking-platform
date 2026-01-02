@@ -41,6 +41,11 @@ import Profile from "./pages/Profile";
 // Member 2 (Cinemas): import CinemasPage from './pages/Cinemas';
 // Member 3 (Movies): import MoviesPage from './pages/Movies';
 // Member 4 (Showtimes): import ShowtimesPage from './pages/Showtimes';
+
+// import Showtimes from "./pages/MovieDetail";
+// import Showtime from "./pages/";
+
+
 // Member 5 (Bookings): import BookingsPage from './pages/Bookings';
 // Member 6 (Seats): import SeatsPage from './pages/Seats';
 // Member 7 (Payments): import PaymentsPage from './pages/Payments';
