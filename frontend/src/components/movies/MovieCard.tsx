@@ -98,3 +98,5 @@ const MovieCard: React.FC<Props> = ({ movie, useModal = true }) => {
 };
 
 export default MovieCard;
+
+// --- IGNORE ---
