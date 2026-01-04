@@ -201,7 +201,7 @@ export const deleteShowtime = async (req: Request, res: Response) => {
 // 6. getShowtimesByMovie
 export const getShowtimesByMovie = async (req: Request, res: Response) => {
   try {
-    const { movieId } = req.params; // must match the route param
+    const { movieId } = req.params;
     const { startDate, endDate } = req.query;
 
     if (!mongoose.isValidObjectId(movieId)) {
@@ -223,18 +223,21 @@ export const getShowtimesByMovie = async (req: Request, res: Response) => {
   }
 };
 
+
 // 7. getShowtimesByCinema
 export const getShowtimesByCinema = async (req: Request, res: Response) => {
   try {
-    const { cinemaId } = req.params; // must match the route param
-    const { date } = req.query;
+    const { cinemaId } = req.params;
+    const { startDate, endDate } = req.query;
 
     if (!mongoose.isValidObjectId(cinemaId)) {
       return res.status(400).json({ message: "Invalid cinemaId." });
     }
 
     const filter: any = { cinemaId, isActive: true };
-    if (date) filter.date = new Date(date as string);
+    if (startDate || endDate) filter.date = {};
+    if (startDate) filter.date.$gte = new Date(startDate as string);
+    if (endDate) filter.date.$lte = new Date(endDate as string);
 
     const showtimes = await Showtime.find(filter)
       .populate([{ path: "movieId" }, { path: "cinemaId" }])
@@ -245,4 +248,3 @@ export const getShowtimesByCinema = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Failed to fetch showtimes by cinema." });
   }
 };
-

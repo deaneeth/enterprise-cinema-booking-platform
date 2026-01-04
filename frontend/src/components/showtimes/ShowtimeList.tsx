@@ -1,7 +1,8 @@
+
 import React, { useEffect, useState } from "react";
 import api, { ApiResponse, getErrorMessage } from "../../services/api";
 import { Showtime } from "../../types/Showtime";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay, addDays } from "date-fns";
 
 interface ShowtimeListProps {
   movieId?: string;
@@ -14,7 +15,7 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
   const [showtimes, setShowtimes] = useState<Showtime[]>([]);
   const [loading, setLoading] = useState(false);
   const [dateFilter, setDateFilter] = useState<"today" | "tomorrow" | "week">("today");
-
+  const [error, setError] = useState<string | null>(null);
   const [groupedShowtimes, setGroupedShowtimes] = useState<DateGroups>({});
 
   useEffect(() => {
@@ -22,25 +23,55 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
 
     const load = async () => {
       setLoading(true);
+      setError(null);
       try {
         let url = "/api/showtimes";
         if (movieId) url = `/api/movies/${movieId}/showtimes`;
         else if (cinemaId) url = `/api/cinemas/${cinemaId}/showtimes`;
 
-        const params: Record<string, string> = {};
-
+        // Calculate date ranges based on filter
         const today = new Date();
-        const tomorrow = new Date(today);
-        tomorrow.setDate(today.getDate() + 1);
+        const tomorrow = addDays(today, 1);
+        const weekEnd = addDays(today, 7);
 
-        if (dateFilter === "today") params.startDate = today.toISOString();
-        if (dateFilter === "tomorrow") params.startDate = tomorrow.toISOString();
-        if (dateFilter === "week") params.startDate = today.toISOString(); // can filter endDate later if API supports
+        let startDate: Date;
+        let endDate: Date;
 
-        const res = await api.get<ApiResponse<Showtime[]>>(url, { params });
+        switch (dateFilter) {
+          case "today":
+            startDate = startOfDay(today);
+            endDate = endOfDay(today);
+            break;
+          case "tomorrow":
+            startDate = startOfDay(tomorrow);
+            endDate = endOfDay(tomorrow);
+            break;
+          case "week":
+            startDate = startOfDay(today);
+            endDate = endOfDay(weekEnd);
+            break;
+        }
+
+        const params: Record<string, string> = {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        };
+
+        console.log("Fetching from:", url, "with params:", params);
+        const res = await api.get<Showtime[] | ApiResponse<Showtime[]>>(url, { params });
+        console.log("Response:", res.data);
+
         if (cancelled) return;
 
-        const data = res.data.data || [];
+        // Handle both plain array and wrapped response
+        let data: Showtime[] = [];
+        if (Array.isArray(res.data)) {
+          data = res.data;
+        } else if (res.data && typeof res.data === 'object' && 'data' in res.data) {
+          data = (res.data as any).data || [];
+        }
+
+        console.log("Showtimes data:", data);
         setShowtimes(data);
 
         // group showtimes by date
@@ -51,10 +82,13 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
           groups[dateKey].push(s);
         });
 
+        console.log("Grouped showtimes:", groups);
         setGroupedShowtimes(groups);
       } catch (err) {
         if (cancelled) return;
-        console.error("Failed to load showtimes:", getErrorMessage(err));
+        const errorMsg = getErrorMessage(err);
+        console.error("Failed to load showtimes:", errorMsg);
+        setError(errorMsg);
         setShowtimes([]);
         setGroupedShowtimes({});
       } finally {
@@ -69,7 +103,6 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
   }, [movieId, cinemaId, dateFilter]);
 
   const handleBook = (s: Showtime) => {
-    // TODO: implement booking logic
     alert(`Book showtime at ${format(new Date(s.startTime), "HH:mm")}`);
   };
 
@@ -89,6 +122,12 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
           </button>
         ))}
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-md bg-red-50 p-4 text-sm text-red-800">
+          Error: {error}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -130,7 +169,7 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
                       disabled={s.availableSeats === 0}
                       className="mt-2 rounded-md bg-indigo-600 px-3 py-1 text-sm text-white disabled:opacity-50"
                     >
-                      Book
+                      Book Seats
                     </button>
                   </div>
                 ))}

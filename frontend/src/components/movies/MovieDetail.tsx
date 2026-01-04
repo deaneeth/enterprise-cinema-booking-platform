@@ -1,10 +1,29 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import api, { ApiResponse } from "../../services/api";
 import { AxiosError } from "axios";
 import { Movie } from "../../types/Movie";
+import { format, startOfDay, endOfDay, addDays } from "date-fns";
 
 type Props = { movieId?: string };
+
+interface Cinema {
+  _id: string;
+  name: string;
+  location?: {
+    city?: string;
+  };
+}
+
+interface ShowtimeData {
+  _id: string;
+  cinemaId: Cinema;
+  startTime: string;
+  format?: string;
+  price: number;
+  availableSeats: number;
+}
 
 const formatDate = (iso?: string) => {
   if (!iso) return "Unknown";
@@ -51,7 +70,12 @@ const MovieDetail: React.FC<Props> = ({ movieId }) => {
   const [movie, setMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [cinemaMap, setCinemaMap] = useState<Map<string, ShowtimeData[]>>(new Map());
+  const [showtimesLoading, setShowtimesLoading] = useState(false);
+  const [allCinemas, setAllCinemas] = useState<Cinema[]>([]);
+  const [cinemasLoading, setCinemasLoading] = useState(false);
 
+  // Load movie details
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
@@ -84,6 +108,86 @@ const MovieDetail: React.FC<Props> = ({ movieId }) => {
       }
     };
     load();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  // Load all cinemas
+  useEffect(() => {
+    let cancelled = false;
+    const loadCinemas = async () => {
+      setCinemasLoading(true);
+      try {
+        const res = await api.get<any>('/api/cinemas');
+        if (cancelled) return;
+
+        let data: Cinema[] = [];
+        
+        // Handle nested response structure: { success, data: { cinemas, pagination } }
+        if (res.data?.data?.cinemas && Array.isArray(res.data.data.cinemas)) {
+          data = res.data.data.cinemas;
+        } else if (Array.isArray(res.data)) {
+          data = res.data;
+        } else if (res.data && typeof res.data === 'object' && 'data' in res.data && Array.isArray(res.data.data)) {
+          data = res.data.data;
+        }
+
+        setAllCinemas(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load cinemas:", err);
+        setAllCinemas([]);
+      } finally {
+        if (!cancelled) setCinemasLoading(false);
+      }
+    };
+
+    loadCinemas();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Load showtimes for the movie
+  useEffect(() => {
+    if (!id) return;
+    
+    let cancelled = false;
+    const loadShowtimes = async () => {
+      setShowtimesLoading(true);
+      try {
+        const res = await api.get<ShowtimeData[] | ApiResponse<ShowtimeData[]>>(
+          `/api/movies/${id}/showtimes`
+        );
+
+        if (cancelled) return;
+
+        let data: ShowtimeData[] = [];
+        if (Array.isArray(res.data)) {
+          data = res.data;
+        } else if (res.data && typeof res.data === 'object' && 'data' in res.data) {
+          data = (res.data as any).data || [];
+        }
+
+        // Group showtimes by cinema
+        const map = new Map<string, ShowtimeData[]>();
+        data.forEach((showtime) => {
+          const cinemaId = (showtime.cinemaId as any)?._id || showtime.cinemaId;
+          if (!map.has(cinemaId)) {
+            map.set(cinemaId, []);
+          }
+          map.get(cinemaId)!.push(showtime);
+        });
+        setCinemaMap(map);
+      } catch (err) {
+        console.error("Failed to load showtimes:", err);
+        setCinemaMap(new Map());
+      } finally {
+        if (!cancelled) setShowtimesLoading(false);
+      }
+    };
+
+    loadShowtimes();
     return () => {
       cancelled = true;
     };
@@ -322,6 +426,51 @@ const MovieDetail: React.FC<Props> = ({ movieId }) => {
             </a>
           </section>
         )}
+
+        {/* Select Cinemas */}
+        <section>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Select Cinemas
+          </h2>
+          {/* Cinema Cards */}
+          {showtimesLoading || cinemasLoading ? (
+            <div className="mt-6 flex items-center justify-center py-10">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent"></div>
+            </div>
+          ) : (
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {allCinemas.map((cinema) => {
+                const showtimesForCinema = cinemaMap.get(cinema._id) || [];
+                const hasShowtimes = showtimesForCinema.length > 0;
+                
+                return (
+                  <Link
+                    key={cinema._id}
+                    to={`/cinemas/${cinema._id}`}
+                    className={`group rounded-lg border-2 transition-all hover:shadow-lg ${
+                      hasShowtimes 
+                        ? 'border-indigo-300 bg-white hover:border-indigo-500' 
+                        : 'border-gray-300 bg-gray-50 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="p-4">
+                      <h3 className={`text-lg font-semibold ${
+                        hasShowtimes 
+                          ? 'text-gray-900 group-hover:text-indigo-600' 
+                          : 'text-gray-600'
+                      }`}>
+                        {cinema.name || "Unknown Cinema"}
+                      </h3>
+                      {cinema.location?.city && (
+                        <p className="text-sm text-gray-500">{cinema.location.city}</p>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
