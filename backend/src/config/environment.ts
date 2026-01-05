@@ -22,10 +22,11 @@ export interface Environment {
  */
 const getRequiredEnv = (key: string): string => {
   const value = process.env[key];
-  if (!value) {
+  // During tests, avoid throwing to allow in-memory DB usage and test setup
+  if (!value && process.env.NODE_ENV !== 'test') {
     throw new Error(`Missing required environment variable: ${key}`);
   }
-  return value;
+  return value || '';
 };
 
 /**
