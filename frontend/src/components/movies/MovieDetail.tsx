@@ -6,6 +6,23 @@ import { Movie } from "../../types/Movie";
 
 type Props = { movieId?: string };
 
+interface Cinema {
+  _id: string;
+  name: string;
+  location?: {
+    city?: string;
+  };
+}
+
+interface ShowtimeData {
+  _id: string;
+  cinemaId: Cinema;
+  startTime: string;
+  format?: string;
+  price: number;
+  availableSeats: number;
+}
+
 const formatDate = (iso?: string) => {
   if (!iso) return "Unknown";
   try {
@@ -51,7 +68,14 @@ const MovieDetail: React.FC<Props> = ({ movieId }) => {
   const [movie, setMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [cinemaMap, setCinemaMap] = useState<Map<string, ShowtimeData[]>>(
+    new Map()
+  );
+  const [showtimesLoading, setShowtimesLoading] = useState(false);
+  const [allCinemas, setAllCinemas] = useState<Cinema[]>([]);
+  const [cinemasLoading, setCinemasLoading] = useState(false);
 
+  // Load movie details
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
@@ -84,6 +108,95 @@ const MovieDetail: React.FC<Props> = ({ movieId }) => {
       }
     };
     load();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  // Load all cinemas
+  useEffect(() => {
+    let cancelled = false;
+    const loadCinemas = async () => {
+      setCinemasLoading(true);
+      try {
+        const res = await api.get<any>("/api/cinemas");
+        if (cancelled) return;
+
+        let data: Cinema[] = [];
+
+        // Handle nested response structure: { success, data: { cinemas, pagination } }
+        if (res.data?.data?.cinemas && Array.isArray(res.data.data.cinemas)) {
+          data = res.data.data.cinemas;
+        } else if (Array.isArray(res.data)) {
+          data = res.data;
+        } else if (
+          res.data &&
+          typeof res.data === "object" &&
+          "data" in res.data &&
+          Array.isArray(res.data.data)
+        ) {
+          data = res.data.data;
+        }
+
+        setAllCinemas(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load cinemas:", err);
+        setAllCinemas([]);
+      } finally {
+        if (!cancelled) setCinemasLoading(false);
+      }
+    };
+
+    loadCinemas();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Load showtimes for the movie
+  useEffect(() => {
+    if (!id) return;
+
+    let cancelled = false;
+    const loadShowtimes = async () => {
+      setShowtimesLoading(true);
+      try {
+        const res = await api.get<ShowtimeData[] | ApiResponse<ShowtimeData[]>>(
+          `/api/movies/${id}/showtimes`
+        );
+
+        if (cancelled) return;
+
+        let data: ShowtimeData[] = [];
+        if (Array.isArray(res.data)) {
+          data = res.data;
+        } else if (
+          res.data &&
+          typeof res.data === "object" &&
+          "data" in res.data
+        ) {
+          data = (res.data as any).data || [];
+        }
+
+        // Group showtimes by cinema
+        const map = new Map<string, ShowtimeData[]>();
+        data.forEach((showtime) => {
+          const cinemaId = (showtime.cinemaId as any)?._id || showtime.cinemaId;
+          if (!map.has(cinemaId)) {
+            map.set(cinemaId, []);
+          }
+          map.get(cinemaId)!.push(showtime);
+        });
+        setCinemaMap(map);
+      } catch (err) {
+        console.error("Failed to load showtimes:", err);
+        setCinemaMap(new Map());
+      } finally {
+        if (!cancelled) setShowtimesLoading(false);
+      }
+    };
+
+    loadShowtimes();
     return () => {
       cancelled = true;
     };
@@ -322,6 +435,101 @@ const MovieDetail: React.FC<Props> = ({ movieId }) => {
             </a>
           </section>
         )}
+
+        {/* Select Cinemas */}
+        <section>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Select Cinemas
+          </h2>
+          {/* Cinema Cards */}
+          {showtimesLoading || cinemasLoading ? (
+            <div className="mt-6 flex items-center justify-center py-10">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent"></div>
+            </div>
+          ) : (
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {allCinemas.map((cinema) => {
+                const showtimesForCinema = cinemaMap.get(cinema._id) || [];
+                const hasShowtimes = showtimesForCinema.length > 0;
+
+                return (
+                  <div
+                    key={cinema._id}
+                    className={`group relative rounded-xl border-2 transition-all ${
+                      hasShowtimes
+                        ? "border-green-400 bg-white shadow-md hover:shadow-lg hover:border-green-500 cursor-pointer"
+                        : "border-gray-200 bg-gray-50 opacity-60"
+                    }`}
+                  >
+                    {hasShowtimes ? (
+                      <Link to={`/cinemas/${cinema._id}`} className="block p-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-green-600">
+                              {cinema.name || "Unknown Cinema"}
+                            </h3>
+                            {cinema.location?.city && (
+                              <p className="text-sm text-gray-500">
+                                {cinema.location.city}
+                              </p>
+                            )}
+                          </div>
+                          <span className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">
+                            <svg
+                              className="h-3.5 w-3.5"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            {showtimesForCinema.length} showtime
+                            {showtimesForCinema.length > 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-1">
+                          {showtimesForCinema.slice(0, 3).map((st) => (
+                            <span
+                              key={st._id}
+                              className="rounded bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700"
+                            >
+                              {new Date(st.startTime).toLocaleTimeString(
+                                "en-US",
+                                { hour: "2-digit", minute: "2-digit" }
+                              )}
+                            </span>
+                          ))}
+                          {showtimesForCinema.length > 3 && (
+                            <span className="text-xs text-gray-500">
+                              +{showtimesForCinema.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    ) : (
+                      <div className="p-4">
+                        <h3 className="text-lg font-semibold text-gray-400">
+                          {cinema.name || "Unknown Cinema"}
+                        </h3>
+                        {cinema.location?.city && (
+                          <p className="text-sm text-gray-400">
+                            {cinema.location.city}
+                          </p>
+                        )}
+                        <p className="mt-2 text-xs text-gray-400 italic">
+                          No showtimes available
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

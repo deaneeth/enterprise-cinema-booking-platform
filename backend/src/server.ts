@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
+import showtimeRoutes from './routes/showtimes';
 
 // Config imports
 import { env, isDevelopment } from './config/environment';
@@ -89,6 +90,9 @@ app.use('/api', cinemaRoutes);
 
 // Movie routes
 app.use('/api', movieRoutes);
+
+// Showtime routes 
+app.use('/api', showtimeRoutes);
 
 // ============================================
 // ERROR HANDLING

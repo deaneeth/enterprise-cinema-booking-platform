@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import api, { getErrorMessage } from "../../services/api";
+import ShowtimeList from "../showtimes/ShowtimeList";
 
 interface Cinema {
   _id: string;
@@ -27,6 +28,7 @@ const CinemaDetail: React.FC = () => {
   const [cinema, setCinema] = useState<Cinema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showShowtimes, setShowShowtimes] = useState(false);
 
   useEffect(() => {
     const fetchCinema = async () => {
@@ -192,19 +194,22 @@ const CinemaDetail: React.FC = () => {
               <p className="mt-2 text-gray-500">No facilities listed</p>
             )}
           </div>
-
-          {/* View Showtimes Button (placeholder for Member 4) */}
           <div className="mt-8 border-t border-gray-200 pt-6">
             <button
-              disabled
-              className="w-full rounded-lg bg-gray-300 px-6 py-3 text-lg font-semibold text-gray-500 cursor-not-allowed"
+              onClick={() => setShowShowtimes(!showShowtimes)}
+              className="w-full rounded-lg bg-indigo-600 px-6 py-3 text-lg font-semibold text-white hover:bg-indigo-700 transition-colors"
             >
-              View Showtimes (Coming Soon)
+              {showShowtimes ? "Hide Showtimes" : "View Showtimes"}
             </button>
-            <p className="mt-2 text-center text-sm text-gray-500">
-              Showtimes will be available once implemented by Member 4
-            </p>
           </div>
+
+          {/* Showtime List */}
+          {showShowtimes && cinema && (
+            <div className="mt-6 border-t border-gray-200 pt-6">
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">Available Showtimes</h2>
+              <ShowtimeList cinemaId={cinema._id} />
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -212,3 +217,6 @@ const CinemaDetail: React.FC = () => {
 };
 
 export default CinemaDetail;
+
+
+
