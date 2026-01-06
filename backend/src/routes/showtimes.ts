@@ -9,7 +9,6 @@ import {
   getShowtimeById,
   updateShowtime,
   deleteShowtime,
-  getShowtimesByMovie,
   getShowtimesByCinema,
 } from '../controllers/showtimeController';
 import { authenticate, requireRole } from '../middlewares/auth';

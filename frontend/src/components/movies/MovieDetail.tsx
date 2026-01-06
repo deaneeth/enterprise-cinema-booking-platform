@@ -3,7 +3,6 @@ import { useParams, Link } from "react-router-dom";
 import api, { ApiResponse } from "../../services/api";
 import { AxiosError } from "axios";
 import { Movie } from "../../types/Movie";
-import { format, startOfDay, endOfDay, addDays } from "date-fns";
 
 type Props = { movieId?: string };
 

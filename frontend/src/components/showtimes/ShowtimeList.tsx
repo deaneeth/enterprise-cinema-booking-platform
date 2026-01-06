@@ -11,7 +11,6 @@ interface ShowtimeListProps {
 type DateGroups = Record<string, Showtime[]>;
 
 const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
-  const [showtimes, setShowtimes] = useState<Showtime[]>([]);
   const [loading, setLoading] = useState(false);
   const [dateFilter, setDateFilter] = useState<
     "today" | "tomorrow" | "week" | "all"
@@ -34,9 +33,6 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
         const today = new Date();
         const tomorrow = addDays(today, 1);
         const weekEnd = addDays(today, 7);
-
-        let startDate: Date;
-        let endDate: Date;
 
         const params: Record<string, string> = {};
 

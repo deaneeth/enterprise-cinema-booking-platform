@@ -593,12 +593,6 @@ export const getMovieShowtimes = async (
       .skip(skip)
       .limit(limit);
 
-    const total = await Showtime.countDocuments({
-      movieId: id,
-      isActive: true,
-    });
-    const pages = Math.max(1, Math.ceil(total / limit));
-
     res.status(200).json({
       success: true,
       data: showtimes,
