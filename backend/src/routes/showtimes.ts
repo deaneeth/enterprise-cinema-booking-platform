@@ -2,7 +2,6 @@
 // Showtime routes - Defines API endpoints for showtime-related operations
 // Handles routes for listing showtimes, filtering by cinema/movie, and showtime management
 
-
 import { Router } from 'express';
 import {
   createShowtime,
@@ -14,7 +13,6 @@ import {
   getShowtimesByCinema,
 } from '../controllers/showtimeController';
 import { authenticate, requireRole } from '../middlewares/auth';
-
 
 const router = Router();
 
@@ -49,13 +47,6 @@ router.get('/showtimes/:id', getShowtimeById);
  * @access  Public
  */
 router.get('/cinemas/:cinemaId/showtimes', getShowtimesByCinema);
-
-
-router.get('/showtimes', getAllShowtimes);
-router.get('/showtimes/:id', getShowtimeById);
-router.get('/movies/:movieId/showtimes', getShowtimesByMovie);
-router.get('/cinemas/:cinemaId/showtimes', getShowtimesByCinema);
-
 
 // ============================================
 // PROTECTED ROUTES (Cinema Admin)
