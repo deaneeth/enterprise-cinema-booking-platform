@@ -81,7 +81,6 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
         }
 
         console.log("Showtimes data:", data);
-        setShowtimes(data);
 
         // group showtimes by date
         const groups: DateGroups = {};
@@ -98,7 +97,6 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
         const errorMsg = getErrorMessage(err);
         console.error("Failed to load showtimes:", errorMsg);
         setError(errorMsg);
-        setShowtimes([]);
         setGroupedShowtimes({});
       } finally {
         if (!cancelled) setLoading(false);
