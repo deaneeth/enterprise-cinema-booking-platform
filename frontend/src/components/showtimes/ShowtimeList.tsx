@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import api, { ApiResponse, getErrorMessage } from "../../services/api";
 import { Showtime } from "../../types/Showtime";
@@ -14,7 +13,9 @@ type DateGroups = Record<string, Showtime[]>;
 const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
   const [showtimes, setShowtimes] = useState<Showtime[]>([]);
   const [loading, setLoading] = useState(false);
-  const [dateFilter, setDateFilter] = useState<"today" | "tomorrow" | "week">("today");
+  const [dateFilter, setDateFilter] = useState<
+    "today" | "tomorrow" | "week" | "all"
+  >("today");
   const [error, setError] = useState<string | null>(null);
   const [groupedShowtimes, setGroupedShowtimes] = useState<DateGroups>({});
 
@@ -37,28 +38,36 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
         let startDate: Date;
         let endDate: Date;
 
-        switch (dateFilter) {
-          case "today":
-            startDate = startOfDay(today);
-            endDate = endOfDay(today);
-            break;
-          case "tomorrow":
-            startDate = startOfDay(tomorrow);
-            endDate = endOfDay(tomorrow);
-            break;
-          case "week":
-            startDate = startOfDay(today);
-            endDate = endOfDay(weekEnd);
-            break;
+        const params: Record<string, string> = {};
+
+        // Only add date filters for specific date ranges, not for "all"
+        if (dateFilter !== "all") {
+          let startDate: Date;
+          let endDate: Date;
+
+          switch (dateFilter) {
+            case "today":
+              startDate = startOfDay(today);
+              endDate = endOfDay(today);
+              break;
+            case "tomorrow":
+              startDate = startOfDay(tomorrow);
+              endDate = endOfDay(tomorrow);
+              break;
+            case "week":
+              startDate = startOfDay(today);
+              endDate = endOfDay(weekEnd);
+              break;
+          }
+
+          params.startDate = startDate!.toISOString();
+          params.endDate = endDate!.toISOString();
         }
 
-        const params: Record<string, string> = {
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-        };
-
         console.log("Fetching from:", url, "with params:", params);
-        const res = await api.get<Showtime[] | ApiResponse<Showtime[]>>(url, { params });
+        const res = await api.get<Showtime[] | ApiResponse<Showtime[]>>(url, {
+          params,
+        });
         console.log("Response:", res.data);
 
         if (cancelled) return;
@@ -67,7 +76,11 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
         let data: Showtime[] = [];
         if (Array.isArray(res.data)) {
           data = res.data;
-        } else if (res.data && typeof res.data === 'object' && 'data' in res.data) {
+        } else if (
+          res.data &&
+          typeof res.data === "object" &&
+          "data" in res.data
+        ) {
           data = (res.data as any).data || [];
         }
 
@@ -110,15 +123,19 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
     <div className="mx-auto max-w-7xl px-4 py-6">
       {/* Date Filter */}
       <div className="mb-4 flex gap-2">
-        {(["today", "tomorrow", "week"] as const).map((d) => (
+        {(["today", "tomorrow", "week", "all"] as const).map((d) => (
           <button
             key={d}
             onClick={() => setDateFilter(d)}
             className={`rounded-md px-3 py-2 text-sm ${
-              dateFilter === d ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700"
+              dateFilter === d
+                ? "bg-indigo-600 text-white"
+                : "bg-gray-100 text-gray-700"
             }`}
           >
-            {d.charAt(0).toUpperCase() + d.slice(1)}
+            {d === "all"
+              ? "All Upcoming"
+              : d.charAt(0).toUpperCase() + d.slice(1)}
           </button>
         ))}
       </div>
@@ -137,18 +154,33 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
             fill="none"
             viewBox="0 0 24 24"
           >
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v8z"
+            ></path>
           </svg>
         </div>
       ) : Object.keys(groupedShowtimes).length === 0 ? (
-        <div className="py-20 text-center text-sm text-gray-600">No showtimes found</div>
+        <div className="py-20 text-center text-sm text-gray-600">
+          No showtimes found
+        </div>
       ) : (
         Object.keys(groupedShowtimes)
           .sort()
           .map((dateKey) => (
             <div key={dateKey} className="mb-6">
-              <h3 className="mb-2 text-lg font-semibold">{format(new Date(dateKey), "EEEE, MMM d")}</h3>
+              <h3 className="mb-2 text-lg font-semibold">
+                {format(new Date(dateKey), "EEEE, MMM d")}
+              </h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {groupedShowtimes[dateKey].map((s) => (
                   <div
@@ -157,11 +189,13 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
                   >
                     <div>
                       <div className="text-sm font-medium text-gray-700">
-                        {movieId ? (s.cinemaId as any)?.name : (s.movieId as any)?.title}
+                        {movieId
+                          ? (s.cinemaId as any)?.name
+                          : (s.movieId as any)?.title}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {format(new Date(s.startTime), "HH:mm")} | {s.format} | {s.language} | ${s.price} |{" "}
-                        {s.availableSeats} seats
+                        {format(new Date(s.startTime), "HH:mm")} | {s.format} |{" "}
+                        {s.language} | ${s.price} | {s.availableSeats} seats
                       </div>
                     </div>
                     <button
