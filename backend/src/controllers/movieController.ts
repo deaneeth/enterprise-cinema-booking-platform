@@ -577,32 +577,31 @@ export const getMovieShowtimes = async (
 
     // Pagination
     let page = req.query.page ? parseInt(String(req.query.page), 10) : 1;
-    let limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 20;
+    let limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 100;
     if (Number.isNaN(page) || page < 1) page = 1;
-    if (Number.isNaN(limit) || limit < 1) limit = 20;
+    if (Number.isNaN(limit) || limit < 1) limit = 100;
     if (limit > 100) limit = 100;
 
-    // TODO: Query Showtime model when Member 4 implements it
-    // For now, return empty array to satisfy API contract
-    // const Showtime = mongoose.model('Showtime');
-    // const skip = (page - 1) * limit;
-    // const showtimes = await Showtime.find({ movieId: id, isActive: true })
-    //   .populate('cinemaId')
-    //   .sort({ startTime: 1 })
-    //   .skip(skip)
-    //   .limit(limit);
-    // const total = await Showtime.countDocuments({ movieId: id, isActive: true });
+    // Query Showtime model for this movie
+    const Showtime = mongoose.model('Showtime');
+    const skip = (page - 1) * limit;
 
-    const showtimes: unknown[] = [];
-    const total = 0;
+    const showtimes = await Showtime.find({ movieId: id, isActive: true })
+      .populate('cinemaId')
+      .populate('movieId')
+      .sort({ startTime: 1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Showtime.countDocuments({
+      movieId: id,
+      isActive: true,
+    });
     const pages = Math.max(1, Math.ceil(total / limit));
 
     res.status(200).json({
       success: true,
-      data: {
-        showtimes,
-        pagination: { page, limit, total, pages },
-      },
+      data: showtimes,
     });
   } catch (error) {
     console.error('Get movie showtimes error:', error);
