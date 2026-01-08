@@ -53,7 +53,7 @@ interface Showtime {
 const Booking: React.FC = () => {
   const { showtimeId } = useParams<{ showtimeId: string }>();
   const navigate = useNavigate();
-  const { currentUser: _currentUser, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const {
     selectedSeats,
     addSeat,
