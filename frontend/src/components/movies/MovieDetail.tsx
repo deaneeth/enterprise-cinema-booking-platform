@@ -319,8 +319,12 @@ const MovieDetail: React.FC<Props> = ({ movieId }) => {
 
             {/* Book Button */}
             <div className="mt-6">
-              <Link
-                to={`/showtimes?movieId=${movie._id}`}
+              <button
+                onClick={() => {
+                  document
+                    .getElementById("select-cinemas")
+                    ?.scrollIntoView({ behavior: "smooth" });
+                }}
                 className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-900 shadow-lg transition-all hover:bg-slate-100 hover:shadow-xl active:scale-[0.98]"
               >
                 <svg
@@ -337,7 +341,7 @@ const MovieDetail: React.FC<Props> = ({ movieId }) => {
                   />
                 </svg>
                 Book Tickets
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -437,7 +441,7 @@ const MovieDetail: React.FC<Props> = ({ movieId }) => {
         )}
 
         {/* Select Cinemas */}
-        <section>
+        <section id="select-cinemas">
           <h2 className="text-lg font-semibold text-gray-900">
             Select Cinemas
           </h2>
@@ -462,10 +466,10 @@ const MovieDetail: React.FC<Props> = ({ movieId }) => {
                     }`}
                   >
                     {hasShowtimes ? (
-                      <Link to={`/cinemas/${cinema._id}`} className="block p-4">
+                      <div className="block p-4">
                         <div className="flex items-start justify-between">
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-green-600">
+                            <h3 className="text-lg font-semibold text-gray-900">
                               {cinema.name || "Unknown Cinema"}
                             </h3>
                             {cinema.location?.city && (
@@ -490,25 +494,43 @@ const MovieDetail: React.FC<Props> = ({ movieId }) => {
                             {showtimesForCinema.length > 1 ? "s" : ""}
                           </span>
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-1">
-                          {showtimesForCinema.slice(0, 3).map((st) => (
-                            <span
-                              key={st._id}
-                              className="rounded bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700"
-                            >
-                              {new Date(st.startTime).toLocaleTimeString(
-                                "en-US",
-                                { hour: "2-digit", minute: "2-digit" }
-                              )}
-                            </span>
-                          ))}
-                          {showtimesForCinema.length > 3 && (
-                            <span className="text-xs text-gray-500">
-                              +{showtimesForCinema.length - 3} more
-                            </span>
-                          )}
+                        <p className="mt-2 text-xs text-gray-500">
+                          Select a showtime:
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {showtimesForCinema.map((st) => {
+                            const dateTime = new Date(st.startTime);
+                            const dateStr = dateTime.toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                              }
+                            );
+                            const timeStr = dateTime.toLocaleTimeString(
+                              "en-US",
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            );
+                            return (
+                              <Link
+                                key={st._id}
+                                to={`/booking/${st._id}`}
+                                className="flex flex-col items-center rounded-lg bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700 transition-colors"
+                              >
+                                <span className="text-xs font-medium">
+                                  {dateStr}
+                                </span>
+                                <span className="text-sm font-bold">
+                                  {timeStr}
+                                </span>
+                              </Link>
+                            );
+                          })}
                         </div>
-                      </Link>
+                      </div>
                     ) : (
                       <div className="p-4">
                         <h3 className="text-lg font-semibold text-gray-400">

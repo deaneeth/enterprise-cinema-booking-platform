@@ -127,7 +127,10 @@ export const getErrorMessage = (error: unknown): string => {
  */
 export const authApi = {
   login: (email: string, password: string) =>
-    api.post<ApiResponse<{user: any; token: string}>>("/api/auth/login", { email, password }),
+    api.post<ApiResponse<{ user: any; token: string }>>("/api/auth/login", {
+      email,
+      password,
+    }),
 
   register: (data: {
     email: string;
@@ -135,9 +138,13 @@ export const authApi = {
     firstName: string;
     lastName: string;
     phone?: string;
-  }) => api.post<ApiResponse<{user: any; token: string}>>("/api/auth/register", data),
+  }) =>
+    api.post<ApiResponse<{ user: any; token: string }>>(
+      "/api/auth/register",
+      data
+    ),
 
-  getMe: () => api.get<ApiResponse<{user: any}>>("/api/auth/me"),
+  getMe: () => api.get<ApiResponse<{ user: any }>>("/api/auth/me"),
 
   logout: () => api.post<ApiResponse>("/api/auth/logout"),
 };
@@ -166,6 +173,45 @@ export const usersApi = {
   ) => api.put<ApiResponse>(`/api/users/${id}/change-password`, data),
 
   deactivate: (id: string) => api.delete<ApiResponse>(`/api/users/${id}`),
+};
+
+/**
+ * Bookings API endpoints
+ */
+export const bookingsApi = {
+  // Create a new booking
+  create: (data: { showtimeId: string; seatIds: string[] }) =>
+    api.post<ApiResponse>("/api/bookings", data),
+
+  // Confirm a booking after payment
+  confirm: (bookingId: string, paymentId?: string) =>
+    api.post<ApiResponse>(`/api/bookings/${bookingId}/confirm`, { paymentId }),
+
+  // Get a specific booking by ID
+  getById: (bookingId: string) =>
+    api.get<ApiResponse>(`/api/bookings/${bookingId}`),
+
+  // Get current user's bookings
+  getMyBookings: (params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) => api.get<ApiResponse>("/api/users/me/bookings", { params }),
+
+  // Cancel a booking
+  cancel: (bookingId: string) =>
+    api.delete<ApiResponse>(`/api/bookings/${bookingId}`),
+
+  // Admin: Get all bookings
+  getAll: (params?: {
+    userId?: string;
+    showtimeId?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) => api.get<ApiResponse>("/api/bookings", { params }),
 };
 
 export default api;

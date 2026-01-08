@@ -45,11 +45,10 @@ import Profile from "./pages/Profile";
 // import Showtimes from "./pages/MovieDetail";
 // import Showtime from "./pages/";
 
+// Member 5 (Bookings): Booking page route import
+import Booking from "./pages/Booking";
+import { BookingProvider } from "./contexts/BookingContext";
 
-// Member 5 (Bookings): import BookingsPage from './pages/Bookings';
-// Member 6 (Seats): import SeatsPage from './pages/Seats';
-// Member 7 (Payments): import PaymentsPage from './pages/Payments';
-// Member 8 (Reviews): import ReviewsPage from './pages/Reviews';
 // =============================================================================
 
 // Member 2 (Cinemas): Cinemas page route import
@@ -119,9 +118,15 @@ const AppRouter: React.FC = () => {
             }
           />
 
-          {/* TODO: Member 5 (Bookings) - Add booking routes */}
-          {/* <Route path="/bookings" element={<ProtectedRoute><BookingsPage /></ProtectedRoute>} /> */}
-          {/* <Route path="/bookings/:id" element={<ProtectedRoute><BookingDetailPage /></ProtectedRoute>} /> */}
+          {/* Member 5 (Bookings) - Booking route */}
+          <Route
+            path="/booking/:showtimeId"
+            element={
+              <ProtectedRoute>
+                <Booking />
+              </ProtectedRoute>
+            }
+          />
 
           {/* TODO: Member 7 (Payments) - Add payment routes */}
           {/* <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} /> */}
@@ -174,9 +179,11 @@ const AppRouter: React.FC = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppRouter />
-      </BrowserRouter>
+      <BookingProvider>
+        <BrowserRouter>
+          <AppRouter />
+        </BrowserRouter>
+      </BookingProvider>
     </AuthProvider>
   );
 };

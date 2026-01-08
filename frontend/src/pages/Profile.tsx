@@ -2,8 +2,10 @@
 // Profile page - Main profile page with tabs for different sections
 // Uses UserProfile component and placeholders for Member 5's components
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import UserProfile from "../components/profile/UserProfile";
+import BookingHistory from "../components/profile/BookingHistory";
 
 // Tab type
 type TabType = "profile" | "bookings" | "payments";
@@ -16,8 +18,18 @@ interface Tab {
 }
 
 const Profile: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabType>("profile");
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const initialTab: TabType =
+    tabParam === "bookings" || tabParam === "payments" ? tabParam : "profile";
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
+  // Update tab when URL parameter changes
+  useEffect(() => {
+    if (tabParam === "bookings" || tabParam === "payments") {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
   // Tab definitions
   const tabs: Tab[] = [
     {
@@ -85,33 +97,10 @@ const Profile: React.FC = () => {
       case "profile":
         return <UserProfile />;
       case "bookings":
-        // Placeholder for BookingHistory component (Member 5)
+        // BookingHistory component (Member 5)
         return (
-          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 bg-indigo-100 rounded-full flex items-center justify-center">
-              <svg
-                className="w-8 h-8 text-indigo-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              My Bookings
-            </h3>
-            <p className="text-gray-500 mb-4">
-              Your booking history will appear here.
-            </p>
-            <p className="text-sm text-gray-400">
-              (BookingHistory component from Member 5)
-            </p>
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <BookingHistory />
           </div>
         );
       case "payments":
