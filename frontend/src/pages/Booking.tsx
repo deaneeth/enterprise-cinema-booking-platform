@@ -53,7 +53,7 @@ interface Showtime {
 const Booking: React.FC = () => {
   const { showtimeId } = useParams<{ showtimeId: string }>();
   const navigate = useNavigate();
-  const { currentUser, isAuthenticated } = useAuth();
+  const { currentUser: _currentUser, isAuthenticated } = useAuth();
   const {
     selectedSeats,
     addSeat,
@@ -161,7 +161,8 @@ const Booking: React.FC = () => {
   /**
    * Handle seat selection toggle This function is defined but not currently called. This is intentional - it's ready for Member 6's SeatMap component integration. The SeatMap will use this callback when users click on seats.
    */
-  const handleSeatClick = useCallback(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleSeatClick = useCallback(
     (seat: Seat) => {
       if (seat.status !== "available") {
         return; // Cannot select held or booked seats
