@@ -4,22 +4,32 @@
 
 import request from 'supertest';
 import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
 import SeatModel from '../../models/Seat';
 import ShowtimeModel from '../../models/Showtime';
 import UserModel from '../../models/User';
 import MovieModel from '../../models/Movie';
 import CinemaModel from '../../models/Cinema';
+// Import your Express app here
+// import app from '../../server';
 
 describe('Seat Endpoints Integration Tests', () => {
   let app: any;
-  let authToken: string;
-  let userId: string;
-  let showtimeId: string;
-  let seatId: string;
+  let authToken: string = '';
+  let userId: string = '';
+  let showtimeId: string = '';
+  let seatId: string = '';
 
   beforeAll(async () => {
     // Note: This assumes the app is properly set up in your test environment
-    // You'll need to import your Express app and connect to test MongoDB
+    // To use this test suite:
+    // 1. Import your Express app from server.ts
+    // 2. Connect to test MongoDB instance
+    // 3. Ensure JWT_SECRET is available in environment
+    
+    // Example setup:
+    // const mongoUri = process.env.MONGODB_TEST_URI || 'mongodb://localhost:27017/cinema-booking-test';
+    // await mongoose.connect(mongoUri);
   });
 
   afterAll(async () => {
@@ -137,8 +147,9 @@ describe('Seat Endpoints Integration Tests', () => {
 
       userId = user._id.toString();
 
-      // Mock authentication (adjust based on your auth setup)
-      // authToken = jwt.sign({ id: userId }, process.env.JWT_SECRET || 'secret');
+      // Generate authentication token
+      const jwtSecret = process.env.JWT_SECRET || 'test-secret-key';
+      authToken = jwt.sign({ id: userId }, jwtSecret, { expiresIn: '1h' });
 
       const response = await request(app)
         .put(`/api/seats/${seatId}/hold`)
@@ -194,18 +205,29 @@ describe('Seat Endpoints Integration Tests', () => {
     });
 
     it('should not release a seat held by another user', async () => {
+      // Create another test user
+      const user2 = await UserModel.create({
+        email: 'test2@example.com',
+        password: 'hashedPassword',
+        firstName: 'Test2',
+        lastName: 'User',
+        role: 'user',
+        isActive: true,
+      });
+
+      const jwtSecret = process.env.JWT_SECRET || 'test-secret-key';
+      const differentToken = jwt.sign({ id: user2._id.toString() }, jwtSecret, { expiresIn: '1h' });
+
       // Hold seat with user 1
       await request(app)
         .put(`/api/seats/${seatId}/hold`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({});
 
-      // Try to release with user 2 (mock different auth token)
-      // This test assumes you can generate another token
-
+      // Try to release with user 2
       const response = await request(app)
         .put(`/api/seats/${seatId}/release`)
-        .set('Authorization', `Bearer differentToken`)
+        .set('Authorization', `Bearer ${differentToken}`)
         .send({});
 
       expect(response.status).toBe(400);
