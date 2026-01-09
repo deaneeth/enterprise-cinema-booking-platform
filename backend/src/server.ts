@@ -7,7 +7,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { createServer } from 'http';
-import { Server as SocketServer } from 'socket.io';
+import showtimeRoutes from './routes/showtimes';
 
 // Config imports
 import { env, isDevelopment } from './config/environment';
@@ -16,6 +16,11 @@ import { connectDatabase, setupDatabaseEvents } from './config/database';
 // Route imports
 import userRoutes from './routes/users';
 import cinemaRoutes from './routes/cinemas';
+import movieRoutes from './routes/movies';
+import bookingRoutes from './routes/bookings';
+
+// Service imports
+import websocketService from './services/websocket';
 
 // Middleware imports
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
@@ -25,15 +30,6 @@ const app: Application = express();
 
 // Create HTTP server for Socket.io
 const httpServer = createServer(app);
-
-// Initialize Socket.io
-const io = new SocketServer(httpServer, {
-  cors: {
-    origin: env.FRONTEND_URL,
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
-});
 
 // ============================================
 // MIDDLEWARE CONFIGURATION
@@ -86,6 +82,15 @@ app.use('/api', userRoutes);
 // Cinema routes
 app.use('/api', cinemaRoutes);
 
+// Movie routes
+app.use('/api', movieRoutes);
+
+// Showtime routes
+app.use('/api', showtimeRoutes);
+
+// Booking routes
+app.use('/api', bookingRoutes);
+
 // ============================================
 // ERROR HANDLING
 // ============================================
@@ -97,28 +102,11 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // ============================================
-// SOCKET.IO CONNECTION HANDLING
+// WEBSOCKET INITIALIZATION
 // ============================================
 
-io.on('connection', (socket) => {
-  console.log(`Socket connected: ${socket.id}`);
-
-  // Handle disconnect
-  socket.on('disconnect', () => {
-    console.log(`Socket disconnected: ${socket.id}`);
-  });
-
-  // Placeholder for seat selection events (Member 5, 6 will implement)
-  socket.on('join-showtime', (showtimeId: string) => {
-    socket.join(`showtime-${showtimeId}`);
-    console.log(`Socket ${socket.id} joined showtime-${showtimeId}`);
-  });
-
-  socket.on('leave-showtime', (showtimeId: string) => {
-    socket.leave(`showtime-${showtimeId}`);
-    console.log(`Socket ${socket.id} left showtime-${showtimeId}`);
-  });
-});
+// Initialize WebSocket service with HTTP server
+websocketService.initialize(httpServer);
 
 // ============================================
 // SERVER STARTUP
@@ -159,5 +147,5 @@ if (env.NODE_ENV !== 'test') {
 }
 
 // Export for testing
-export { app, httpServer, io };
+export { app, httpServer, websocketService };
 export default app;

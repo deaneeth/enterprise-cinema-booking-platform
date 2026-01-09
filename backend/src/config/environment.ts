@@ -22,10 +22,11 @@ export interface Environment {
  */
 const getRequiredEnv = (key: string): string => {
   const value = process.env[key];
-  if (!value) {
+  // During tests, avoid throwing to allow in-memory DB usage and test setup
+  if (!value && process.env.NODE_ENV !== 'test') {
     throw new Error(`Missing required environment variable: ${key}`);
   }
-  return value;
+  return value || '';
 };
 
 /**
@@ -47,6 +48,7 @@ export const env: Environment = {
   PORT: parseInt(getOptionalEnv('PORT', '5000'), 10),
   MONGODB_URI: getRequiredEnv('MONGODB_URI'),
   JWT_SECRET: getRequiredEnv('JWT_SECRET'),
+
   JWT_EXPIRE: getOptionalEnv('JWT_EXPIRE', '24h'),
   FRONTEND_URL: getOptionalEnv('FRONTEND_URL', 'http://localhost:3000'),
 };

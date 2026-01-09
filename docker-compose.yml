@@ -3,8 +3,6 @@
 # Defines and configures frontend, backend, database, and other services
 # Used to run the entire application stack with a single command
 
-version: '3.8'
-
 services:
   # MongoDB Database
   mongodb:

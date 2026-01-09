@@ -105,3 +105,66 @@ Recommended indexes (some may be implemented later as the dataset grows):
 
 - Cinemas: `{ "location.city": 1, "isActive": 1 }`
 - Cinemas: name search is implemented using a case-insensitive regex on the `name` field (no text index defined). A MongoDB text index `{ "name": "text" }` can be added in the future if needed for full-text search and performance.
+
+---
+
+
+### Movies
+
+**Purpose**: Store movie metadata used by showtimes, bookings and reviews.
+
+**Schema (MongoDB / Mongoose)**
+
+- `title` (String, required, trimmed, indexed for text search)
+- `description` (String, optional, trimmed)
+- `genre` (String[], enum: `Action`, `Drama`, `Comedy`, default: `[]`)
+- `language` (String, enum: `English`, `Sinhala`, `Tamil`)
+- `duration` (Number, minutes, integer >= 0)
+- `releaseDate` (Date)
+- `rating` (String, enum: `G`, `PG`, `PG-13`, `R`)
+- `posterUrl` (String, optional)
+- `trailerUrl` (String, optional)
+- `cast` (String[], default: `[]`)
+- `director` (String, optional)
+- `isActive` (Boolean, default: `true`) — soft delete
+- `createdAt` / `updatedAt` (Date, auto)
+
+**Indexes**
+
+- Text index on `title` for full-text search: `{ title: "text" }`
+- Optional compound index for common filters: `{ genre: 1, language: 1, isActive: 1 }`
+
+**Relationships**
+
+- `Showtime` documents reference a `Movie` (`one movie -> many showtimes`).
+- `Review` and `Booking` documents reference `Movie._id`.
+
+**Sample document**
+
+```json
+{
+  "_id": "<ObjectId>",
+  "title": "Example Movie",
+  "description": "Short synopsis",
+  "genre": ["Action"],
+  "language": "English",
+  "duration": 150,
+  "releaseDate": "2025-12-01T00:00:00.000Z",
+  "rating": "PG-13",
+  "posterUrl": "https://...",
+  "trailerUrl": "https://youtube.com/...",
+  "cast": ["Actor A", "Actor B"],
+  "director": "Director X",
+  "isActive": true,
+  "createdAt": "<Date>",
+  "updatedAt": "<Date>"
+}
+```
+
+**Notes / Implementation**
+
+- Store `duration` in minutes; add a helper `formatDuration()` to display e.g. `"2h 30m"` (see `backend/src/models/Movie.ts`).
+- For richer searching consider adding `description` to the text index or using a dedicated search service.
+
+
+
