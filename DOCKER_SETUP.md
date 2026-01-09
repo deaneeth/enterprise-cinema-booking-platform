@@ -33,6 +33,24 @@ This starts:
 - **Backend API** → `http://localhost:5000`
 - **Frontend** → `http://localhost:3000`
 
+### Run MongoDB Only (Without Backend and Frontend)
+
+```bash
+docker-compose up -d mongodb
+```
+
+### Run Backend Only (Without MongoDB and Frontend)
+
+```bash
+docker-compose up -d backend
+```
+
+### Run Frontend Only (Without MongoDB and Backend)
+
+```bash
+docker-compose up -d frontend
+```
+
 ### Stop All Services
 
 ```bash

@@ -108,7 +108,7 @@ const Navbar: React.FC = () => {
                     Profile
                   </Link>
                   <Link
-                    to="/bookings"
+                    to="/profile?tab=bookings"
                     className="block px-4 py-2 text-sm hover:bg-gray-100"
                   >
                     Bookings
@@ -165,7 +165,10 @@ const Navbar: React.FC = () => {
                 <Link to="/profile" className="text-sm text-gray-200">
                   Profile
                 </Link>
-                <Link to="/bookings" className="text-sm text-gray-200">
+                <Link
+                  to="/profile?tab=bookings"
+                  className="text-sm text-gray-200"
+                >
                   Bookings
                 </Link>
                 <button

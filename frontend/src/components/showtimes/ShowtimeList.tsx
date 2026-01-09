@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api, { ApiResponse, getErrorMessage } from "../../services/api";
 import { Showtime } from "../../types/Showtime";
 import { format, startOfDay, endOfDay, addDays } from "date-fns";
@@ -109,8 +110,11 @@ const ShowtimeList: React.FC<ShowtimeListProps> = ({ movieId, cinemaId }) => {
     };
   }, [movieId, cinemaId, dateFilter]);
 
+  const navigate = useNavigate();
+
   const handleBook = (s: Showtime) => {
-    alert(`Book showtime at ${format(new Date(s.startTime), "HH:mm")}`);
+    // Navigate to booking page with showtime ID
+    navigate(`/booking/${s._id}`);
   };
 
   return (
