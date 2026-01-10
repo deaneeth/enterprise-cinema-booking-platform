@@ -59,13 +59,11 @@ const Booking: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const {
-    selectedSeats: _contextSeats, // Used by booking context internally
     addSeat,
     removeSeat,
     clearSeats,
     setCurrentShowtime,
     createBooking,
-    isLoading: _isBookingLoading, // For future use
     error: bookingError,
     clearError,
   } = useBooking();
