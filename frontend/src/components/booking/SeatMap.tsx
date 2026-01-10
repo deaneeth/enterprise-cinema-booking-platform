@@ -50,7 +50,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [holdTimer, setHoldTimer] = useState<number | null>(null);
-  const [isConnected] = useState(false); // Connection status (read-only for now)
+  const [isConnected, setIsConnected] = useState(false);
   const [selectingUsers, setSelectingUsers] = useState<Map<string, string>>(
     new Map()
   );

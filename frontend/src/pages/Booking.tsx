@@ -74,9 +74,9 @@ const Booking: React.FC = () => {
   const [showtime, setShowtime] = useState<Showtime | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [_isCreatingBooking, _setIsCreatingBooking] = useState(false);
+  const [isCreatingBooking, setIsCreatingBooking] = useState(false);
   const [selectedSeats, setSelectedSeats] = useState<SeatData[]>([]);
-  const [_holdTimeRemaining, _setHoldTimeRemaining] = useState<number | null>(
+  const [holdTimeRemaining, setHoldTimeRemaining] = useState<number | null>(
     null
   );
 
