@@ -74,6 +74,258 @@ export class SeatController {
   }
 
   /**
+   * Get all seats with filters and pagination (Admin only)
+   * Supports filtering by showtimeId, status, seatType
+   *
+   * @param req - Express request with query params
+   * @param res - Express response
+   */
+  static async getAllSeats(req: Request, res: Response): Promise<void> {
+    try {
+      const { showtimeId, status, seatType, page = 1, limit = 100 } = req.query;
+
+      // Build query filter
+      const query: Record<string, unknown> = {};
+      if (showtimeId) query.showtimeId = showtimeId;
+      if (status) query.status = status;
+      if (seatType) query.seatType = seatType;
+
+      // Calculate pagination
+      const pageNum = Math.max(1, parseInt(page as string, 10));
+      const limitNum = Math.min(
+        100,
+        Math.max(1, parseInt(limit as string, 10))
+      );
+      const skip = (pageNum - 1) * limitNum;
+
+      // Fetch seats with pagination
+      const [seats, total] = await Promise.all([
+        SeatModel.find(query)
+          .populate('showtimeId', 'movieId cinemaId startTime date')
+          .sort({ showtimeId: 1, row: 1, column: 1 })
+          .skip(skip)
+          .limit(limitNum),
+        SeatModel.countDocuments(query),
+      ]);
+
+      res.status(200).json({
+        success: true,
+        data: seats,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum),
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching all seats:', error);
+      res.status(500).json({
+        success: false,
+        error: { message: 'Failed to fetch seats' },
+      });
+    }
+  }
+
+  /**
+   * Get single seat by ID
+   * Checks for expired hold and releases it
+   *
+   * @param req - Express request with seat ID param
+   * @param res - Express response
+   */
+  static async getSeatById(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Seat ID is required' },
+        });
+        return;
+      }
+
+      const seat = await SeatModel.findById(id).populate(
+        'showtimeId',
+        'movieId cinemaId startTime date price screenNumber'
+      );
+
+      if (!seat) {
+        res.status(404).json({
+          success: false,
+          error: { message: 'Seat not found' },
+        });
+        return;
+      }
+
+      // Check for expired hold and release it
+      if (seat.status === 'held' && seat.isExpired()) {
+        seat.status = 'available';
+        seat.heldBy = undefined;
+        seat.heldUntil = undefined;
+        await seat.save();
+
+        // Emit WebSocket event
+        websocketService?.broadcastSeatUpdate(seat.showtimeId.toString(), {
+          seatId: seat._id.toString(),
+          status: 'available',
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: seat,
+      });
+    } catch (error) {
+      console.error('Error fetching seat:', error);
+      res.status(500).json({
+        success: false,
+        error: { message: 'Failed to fetch seat' },
+      });
+    }
+  }
+
+  /**
+   * Book a single seat (internal use by booking flow)
+   * Updates seat status to 'booked' and sets bookingId
+   *
+   * @param req - Express request with seat ID and booking ID
+   * @param res - Express response
+   */
+  static async bookSeat(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { bookingId } = req.body;
+
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Seat ID is required' },
+        });
+        return;
+      }
+
+      if (!bookingId) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Booking ID is required' },
+        });
+        return;
+      }
+
+      const seat = await SeatModel.findById(id);
+      if (!seat) {
+        res.status(404).json({
+          success: false,
+          error: { message: 'Seat not found' },
+        });
+        return;
+      }
+
+      // Check if seat can be booked (must be available or held)
+      if (seat.status === 'booked') {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Seat is already booked' },
+        });
+        return;
+      }
+
+      // Update seat status to booked
+      seat.status = 'booked';
+      seat.bookingId = bookingId;
+      seat.heldBy = undefined;
+      seat.heldUntil = undefined;
+
+      await seat.save();
+
+      // Emit WebSocket event
+      websocketService?.broadcastSeatUpdate(seat.showtimeId.toString(), {
+        seatId: seat._id.toString(),
+        status: 'booked',
+      });
+
+      res.status(200).json({
+        success: true,
+        data: seat,
+      });
+    } catch (error) {
+      console.error('Error booking seat:', error);
+      res.status(500).json({
+        success: false,
+        error: { message: 'Failed to book seat' },
+      });
+    }
+  }
+
+  /**
+   * Reset all seats for a showtime (Admin only)
+   * Sets all seats back to 'available' status
+   * Used for showtime cancellation or testing
+   *
+   * @param req - Express request with showtime ID
+   * @param res - Express response
+   */
+  static async resetSeatsForShowtime(
+    req: Request,
+    res: Response
+  ): Promise<void> {
+    try {
+      const { showtimeId } = req.params;
+
+      if (!showtimeId) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Showtime ID is required' },
+        });
+        return;
+      }
+
+      // Check if showtime exists
+      const showtime = await ShowtimeModel.findById(showtimeId);
+      if (!showtime) {
+        res.status(404).json({
+          success: false,
+          error: { message: 'Showtime not found' },
+        });
+        return;
+      }
+
+      // Reset all seats for this showtime
+      const result = await SeatModel.updateMany(
+        { showtimeId },
+        {
+          $set: {
+            status: 'available',
+            heldBy: null,
+            heldUntil: null,
+            bookingId: null,
+          },
+        }
+      );
+
+      // Emit WebSocket event to refresh all seats
+      websocketService?.broadcastSeatsRefresh(showtimeId);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          showtimeId,
+          resetCount: result.modifiedCount,
+          message: `${result.modifiedCount} seats reset to available`,
+        },
+      });
+    } catch (error) {
+      console.error('Error resetting seats:', error);
+      res.status(500).json({
+        success: false,
+        error: { message: 'Failed to reset seats' },
+      });
+    }
+  }
+
+  /**
    * Get all seats for a showtime grouped by row
    * Releases expired holds before returning
    *
@@ -106,7 +358,10 @@ export class SeatController {
       await SeatController.releaseExpiredHolds(showtimeId);
 
       // Fetch all seats for the showtime
-      const seats = await SeatModel.find({ showtimeId }).sort({ row: 1, column: 1 });
+      const seats = await SeatModel.find({ showtimeId }).sort({
+        row: 1,
+        column: 1,
+      });
 
       if (seats.length === 0) {
         res.status(404).json({
@@ -153,7 +408,7 @@ export class SeatController {
    */
   static async holdSeat(req: Request, res: Response): Promise<void> {
     try {
-      const { seatId } = req.params;
+      const seatId = req.params.id;
       const userId = (req as any).user?.id;
 
       if (!userId) {
@@ -200,14 +455,11 @@ export class SeatController {
       await seat.save();
 
       // Emit WebSocket event to notify other clients
-      websocketService?.broadcastSeatUpdate(
-        seat.showtimeId.toString(),
-        {
-          seatId: seat._id.toString(),
-          status: 'held',
-          heldBy: userId,
-        }
-      );
+      websocketService?.broadcastSeatUpdate(seat.showtimeId.toString(), {
+        seatId: seat._id.toString(),
+        status: 'held',
+        heldBy: userId,
+      });
 
       // Schedule auto-release after 10 minutes
       setTimeout(
@@ -239,7 +491,7 @@ export class SeatController {
    */
   static async releaseSeat(req: Request, res: Response): Promise<void> {
     try {
-      const { seatId } = req.params;
+      const seatId = req.params.id;
       const userId = (req as any).user?.id;
 
       if (!userId) {
@@ -286,13 +538,10 @@ export class SeatController {
       await seat.save();
 
       // Emit WebSocket event
-      websocketService?.broadcastSeatUpdate(
-        seat.showtimeId.toString(),
-        {
-          seatId: seat._id.toString(),
-          status: 'available',
-        }
-      );
+      websocketService?.broadcastSeatUpdate(seat.showtimeId.toString(), {
+        seatId: seat._id.toString(),
+        status: 'available',
+      });
 
       res.status(200).json({
         success: true,
@@ -356,13 +605,10 @@ export class SeatController {
 
       // Emit WebSocket event to refresh all seats in showtime room
       updatedSeats.forEach((seat) => {
-        websocketService?.broadcastSeatUpdate(
-          showtimeId,
-          {
-            seatId: seat._id.toString(),
-            status: 'booked',
-          }
-        );
+        websocketService?.broadcastSeatUpdate(showtimeId, {
+          seatId: seat._id.toString(),
+          status: 'booked',
+        });
       });
 
       res.status(200).json({
@@ -409,13 +655,10 @@ export class SeatController {
         await seat.save();
 
         // Emit WebSocket event
-        websocketService?.broadcastSeatUpdate(
-          seat.showtimeId.toString(),
-          {
-            seatId: seat._id.toString(),
-            status: 'available',
-          }
-        );
+        websocketService?.broadcastSeatUpdate(seat.showtimeId.toString(), {
+          seatId: seat._id.toString(),
+          status: 'available',
+        });
       }
 
       if (expiredSeats.length > 0) {
@@ -449,13 +692,10 @@ export class SeatController {
       await seat.save();
 
       // Emit WebSocket event
-      websocketService?.broadcastSeatUpdate(
-        seat.showtimeId.toString(),
-        {
-          seatId: seat._id.toString(),
-          status: 'available',
-        }
-      );
+      websocketService?.broadcastSeatUpdate(seat.showtimeId.toString(), {
+        seatId: seat._id.toString(),
+        status: 'available',
+      });
 
       console.log(`Auto-released expired seat hold: ${seatId}`);
     } catch (error) {
