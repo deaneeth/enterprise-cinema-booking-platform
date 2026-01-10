@@ -74,11 +74,9 @@ const Booking: React.FC = () => {
   const [showtime, setShowtime] = useState<Showtime | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isCreatingBooking, setIsCreatingBooking] = useState(false);
+  const [, setIsCreatingBooking] = useState(false);
   const [selectedSeats, setSelectedSeats] = useState<SeatData[]>([]);
-  const [holdTimeRemaining, setHoldTimeRemaining] = useState<number | null>(
-    null
-  );
+  const [holdTimeRemaining] = useState<number | null>(null);
 
   // Calculate total price
   const totalPrice = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
