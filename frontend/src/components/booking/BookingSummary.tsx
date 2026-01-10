@@ -2,7 +2,7 @@
 // Booking summary component - Displays selected seats, pricing, and hold timer
 // Shows booking details and proceeds to payment when ready
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 
 /* =======================
   Types and Interfaces
@@ -13,8 +13,8 @@ interface SeatData {
   seatNumber: string;
   row: string;
   column: number;
-  seatType: 'regular' | 'vip' | 'wheelchair';
-  status: 'available' | 'held' | 'booked';
+  seatType: "regular" | "vip" | "wheelchair";
+  status: "available" | "held" | "booked";
   price: number;
 }
 
@@ -40,6 +40,7 @@ interface BookingSummaryProps {
   showtime: Showtime | null;
   onProceedToPayment: () => void;
   onClearSelection: () => void;
+  onRemoveSeat?: (seatId: string) => void;
   holdTimeRemaining?: number | null;
 }
 
@@ -52,6 +53,7 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
   showtime,
   onProceedToPayment,
   onClearSelection,
+  onRemoveSeat,
   holdTimeRemaining,
 }) => {
   const [priceBreakdown, setPriceBreakdown] = useState<{
@@ -67,8 +69,8 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
       return;
     }
 
-    const regularSeats = selectedSeats.filter((s) => s.seatType === 'regular');
-    const vipSeats = selectedSeats.filter((s) => s.seatType === 'vip');
+    const regularSeats = selectedSeats.filter((s) => s.seatType === "regular");
+    const vipSeats = selectedSeats.filter((s) => s.seatType === "vip");
 
     const regularPrice = regularSeats.length > 0 ? regularSeats[0].price : 0;
     const vipPrice = vipSeats.length > 0 ? vipSeats[0].price : 0;
@@ -84,8 +86,7 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
         price: vipPrice,
         subtotal: vipSeats.length * vipPrice,
       },
-      total:
-        regularSeats.length * regularPrice + vipSeats.length * vipPrice,
+      total: regularSeats.length * regularPrice + vipSeats.length * vipPrice,
     };
 
     setPriceBreakdown(breakdown);
@@ -93,16 +94,16 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
 
   // Format date and time
   const formatDateTime = (): string => {
-    if (!showtime) return '';
+    if (!showtime) return "";
     const date = new Date(showtime.startTime);
-    const time = date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
+    const time = date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
     });
-    const dateStr = date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
+    const dateStr = date.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
     });
     return `${dateStr} at ${time}`;
   };
@@ -111,7 +112,7 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    return `${minutes}:${secs.toString().padStart(2, "0")}`;
   };
 
   if (!showtime) {
@@ -129,13 +130,13 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
       {/* Movie Info */}
       <div className="mb-6">
         <h3 className="font-semibold text-lg text-gray-800 mb-2">
-          {showtime.movieId?.title || 'Movie'}
+          {showtime.movieId?.title || "Movie"}
         </h3>
         <p className="text-sm text-gray-600">
-          {showtime.cinemaId?.name || 'Cinema'}
+          {showtime.cinemaId?.name || "Cinema"}
         </p>
         <p className="text-sm text-gray-600 mt-1">
-          Screen {showtime.screenNumber || '-'}
+          Screen {showtime.screenNumber || "-"}
         </p>
       </div>
 
@@ -172,14 +173,15 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
         ) : (
           <div className="space-y-2">
             {/* Regular Seats */}
-            {selectedSeats.filter((s) => s.seatType === 'regular').length > 0 && (
+            {selectedSeats.filter((s) => s.seatType === "regular").length >
+              0 && (
               <div>
                 <p className="text-xs font-medium text-gray-600 mb-1">
                   Regular Seats
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {selectedSeats
-                    .filter((s) => s.seatType === 'regular')
+                    .filter((s) => s.seatType === "regular")
                     .map((seat) => (
                       <span
                         key={seat._id}
@@ -187,9 +189,7 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
                       >
                         {seat.seatNumber}
                         <button
-                          onClick={() => {
-                            // Handle remove seat
-                          }}
+                          onClick={() => onRemoveSeat?.(seat._id)}
                           className="ml-1 hover:text-blue-600"
                         >
                           ×
@@ -201,14 +201,14 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
             )}
 
             {/* VIP Seats */}
-            {selectedSeats.filter((s) => s.seatType === 'vip').length > 0 && (
+            {selectedSeats.filter((s) => s.seatType === "vip").length > 0 && (
               <div>
                 <p className="text-xs font-medium text-gray-600 mb-1">
                   VIP Seats 👑
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {selectedSeats
-                    .filter((s) => s.seatType === 'vip')
+                    .filter((s) => s.seatType === "vip")
                     .map((seat) => (
                       <span
                         key={seat._id}
@@ -216,9 +216,7 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
                       >
                         {seat.seatNumber}
                         <button
-                          onClick={() => {
-                            // Handle remove seat
-                          }}
+                          onClick={() => onRemoveSeat?.(seat._id)}
                           className="ml-1 hover:text-purple-600"
                         >
                           ×
@@ -230,14 +228,15 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
             )}
 
             {/* Wheelchair Seats */}
-            {selectedSeats.filter((s) => s.seatType === 'wheelchair').length > 0 && (
+            {selectedSeats.filter((s) => s.seatType === "wheelchair").length >
+              0 && (
               <div>
                 <p className="text-xs font-medium text-gray-600 mb-1">
                   Wheelchair Accessible ♿
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {selectedSeats
-                    .filter((s) => s.seatType === 'wheelchair')
+                    .filter((s) => s.seatType === "wheelchair")
                     .map((seat) => (
                       <span
                         key={seat._id}
@@ -245,9 +244,7 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
                       >
                         {seat.seatNumber}
                         <button
-                          onClick={() => {
-                            // Handle remove seat
-                          }}
+                          onClick={() => onRemoveSeat?.(seat._id)}
                           className="ml-1 hover:text-green-600"
                         >
                           ×
@@ -272,19 +269,23 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
             {priceBreakdown.regular.count > 0 && (
               <div className="flex justify-between text-gray-600">
                 <span>
-                  Regular Seats ({priceBreakdown.regular.count}) ×₹
+                  Regular Seats ({priceBreakdown.regular.count}) × $
                   {priceBreakdown.regular.price}
                 </span>
-                <span className="font-medium">₹{priceBreakdown.regular.subtotal}</span>
+                <span className="font-medium">
+                  ${priceBreakdown.regular.subtotal}
+                </span>
               </div>
             )}
             {priceBreakdown.vip.count > 0 && (
               <div className="flex justify-between text-gray-600">
                 <span>
-                  VIP Seats ({priceBreakdown.vip.count}) × ₹
+                  VIP Seats ({priceBreakdown.vip.count}) × $
                   {priceBreakdown.vip.price}
                 </span>
-                <span className="font-medium">₹{priceBreakdown.vip.subtotal}</span>
+                <span className="font-medium">
+                  ${priceBreakdown.vip.subtotal}
+                </span>
               </div>
             )}
 
@@ -294,7 +295,7 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
             {/* Total */}
             <div className="flex justify-between font-bold text-lg text-gray-900">
               <span>Total Amount</span>
-              <span className="text-blue-600">₹{priceBreakdown.total}</span>
+              <span className="text-blue-600">${priceBreakdown.total}</span>
             </div>
           </div>
         </div>
@@ -310,11 +311,13 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
           disabled={!isReadyForPayment}
           className={`w-full py-3 rounded-lg font-semibold transition-all duration-200 ${
             isReadyForPayment
-              ? 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95'
-              : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+              ? "bg-blue-600 text-white hover:bg-blue-700 active:scale-95"
+              : "bg-gray-200 text-gray-500 cursor-not-allowed"
           }`}
         >
-          {isReadyForPayment ? 'Proceed to Payment' : 'Select Seats to Continue'}
+          {isReadyForPayment
+            ? "Proceed to Payment"
+            : "Select Seats to Continue"}
         </button>
 
         <button
@@ -322,8 +325,8 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
           disabled={selectedSeats.length === 0}
           className={`w-full py-3 rounded-lg font-semibold transition-all duration-200 ${
             selectedSeats.length > 0
-              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300 active:scale-95'
-              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              ? "bg-gray-200 text-gray-700 hover:bg-gray-300 active:scale-95"
+              : "bg-gray-100 text-gray-400 cursor-not-allowed"
           }`}
         >
           Clear Selection
@@ -333,8 +336,8 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
       {/* Info */}
       <div className="mt-6 bg-gray-50 rounded-lg p-3">
         <p className="text-xs text-gray-600">
-          💡 <span className="font-medium">Tip:</span> Your seats will be held for 10 minutes. Complete
-          your payment within this time.
+          💡 <span className="font-medium">Tip:</span> Your seats will be held
+          for 10 minutes. Complete your payment within this time.
         </p>
       </div>
     </div>
