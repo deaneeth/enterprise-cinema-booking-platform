@@ -5,7 +5,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api, { getErrorMessage } from "../services/api";
-import { useBooking, Seat } from "../contexts/BookingContext";
+import { useBooking } from "../contexts/BookingContext";
 import { useAuth } from "../contexts/AuthContext";
 import websocketClient from "../services/websocket";
 import SeatMap, { SeatData } from "../components/booking/SeatMap";
@@ -59,13 +59,13 @@ const Booking: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const {
-    selectedSeats: contextSeats,
+    selectedSeats: _contextSeats, // Used by booking context internally
     addSeat,
     removeSeat,
     clearSeats,
     setCurrentShowtime,
     createBooking,
-    isLoading: isBookingLoading,
+    isLoading: _isBookingLoading, // For future use
     error: bookingError,
     clearError,
   } = useBooking();
@@ -74,15 +74,14 @@ const Booking: React.FC = () => {
   const [showtime, setShowtime] = useState<Showtime | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isCreatingBooking, setIsCreatingBooking] = useState(false);
+  const [_isCreatingBooking, _setIsCreatingBooking] = useState(false);
   const [selectedSeats, setSelectedSeats] = useState<SeatData[]>([]);
-  const [holdTimeRemaining, setHoldTimeRemaining] = useState<number | null>(null);
+  const [_holdTimeRemaining, _setHoldTimeRemaining] = useState<number | null>(
+    null
+  );
 
   // Calculate total price
-  const totalPrice = selectedSeats.reduce(
-    (sum, seat) => sum + seat.price,
-    0
-  );
+  const totalPrice = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
 
   /**
    * Fetch showtime details
@@ -171,9 +170,9 @@ const Booking: React.FC = () => {
         id: seat._id,
         row: seat.row,
         number: seat.column,
-        status: 'held',
+        status: "held",
         price: seat.price,
-        type: seat.seatType === 'vip' ? 'premium' : 'standard',
+        type: seat.seatType === "vip" ? "premium" : "standard",
       });
     },
     [addSeat]
@@ -219,19 +218,51 @@ const Booking: React.FC = () => {
   };
 
   /**
-   * Handle clear selection
+   * Handle clear selection - release all held seats on backend
    */
-  const handleClearSelection = () => {
+  const handleClearSelection = async () => {
+    // Release all selected seats on the backend
+    try {
+      await Promise.all(
+        selectedSeats.map((seat) =>
+          api.put(`/api/seats/${seat._id}/release`).catch((err) => {
+            console.error(`Failed to release seat ${seat.seatNumber}:`, err);
+          })
+        )
+      );
+    } catch (err) {
+      console.error("Error releasing seats:", err);
+    }
+
+    // Clear frontend state
     setSelectedSeats([]);
     clearSeats();
   };
 
   /**
-   * Handle cancel and go back
+   * Handle cancel and go back - release held seats first
    */
-  const handleCancel = () => {
+  const handleCancel = async () => {
+    // Release all selected seats on the backend before leaving
+    try {
+      await Promise.all(
+        selectedSeats.map((seat) =>
+          api.put(`/api/seats/${seat._id}/release`).catch((err) => {
+            console.error(`Failed to release seat ${seat.seatNumber}:`, err);
+          })
+        )
+      );
+    } catch (err) {
+      console.error("Error releasing seats:", err);
+    }
+
     clearSeats();
-    navigate(-1);
+    // Navigate to movie detail page instead of history.back()
+    if (showtime?.movieId?._id) {
+      navigate(`/movies/${showtime.movieId._id}`);
+    } else {
+      navigate("/movies");
+    }
   };
 
   /**
@@ -280,7 +311,7 @@ const Booking: React.FC = () => {
           {error || "The showtime you're looking for doesn't exist."}
         </p>
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/movies")}
           className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
         >
           Go Back
@@ -423,6 +454,7 @@ const Booking: React.FC = () => {
               showtime={showtime}
               onProceedToPayment={handleProceedToPayment}
               onClearSelection={handleClearSelection}
+              onRemoveSeat={handleSeatDeselect}
               holdTimeRemaining={holdTimeRemaining}
             />
           </div>

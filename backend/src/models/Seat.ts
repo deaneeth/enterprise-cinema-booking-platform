@@ -134,7 +134,7 @@ SeatSchema.methods.isExpired = function (this: SeatDocument): boolean {
  */
 SeatSchema.statics.generateSeatsForShowtime = async function (
   showtimeId: string,
-  totalSeats: number = 100,
+  _totalSeats: number = 100, // Prefixed with _ as layout determines actual seat count
   layout?: { rows?: number; cols?: number }
 ): Promise<any[]> {
   const rows = layout?.rows || 10;
