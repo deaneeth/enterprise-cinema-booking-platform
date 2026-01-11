@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "@paypal/react-paypal-js": "^8.9.2",
     "@tanstack/react-query": "^5.90.16",
     "ajv": "^8.17.1",
     "axios": "^1.6.5",
