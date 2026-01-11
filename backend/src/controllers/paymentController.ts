@@ -419,8 +419,12 @@ export const getPaymentById = async (req: Request, res: Response) => {
       });
     }
 
-    // Check ownership or admin
-    if (payment.userId.toString() !== userId && !isPlatformAdmin(req)) {
+    // Check ownership or admin - handle both populated and unpopulated userId
+    const paymentOwnerId = typeof payment.userId === 'object' 
+      ? (payment.userId as any)._id?.toString()
+      : String(payment.userId);
+    
+    if (paymentOwnerId !== userId && !isPlatformAdmin(req)) {
       return res.status(403).json({
         success: false,
         error: { message: 'Not authorized to view this payment' },

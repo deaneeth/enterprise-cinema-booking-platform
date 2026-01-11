@@ -154,8 +154,7 @@ const PaymentSchema = new Schema<PaymentDocument, PaymentModel>(
   Indexes
 ======================= */
 
-// Index on paypalOrderId for quick lookups during capture
-PaymentSchema.index({ paypalOrderId: 1 });
+// Note: paypalOrderId already has unique:true which creates an index automatically
 
 // Index on userId for fetching user's payments
 PaymentSchema.index({ userId: 1 });
