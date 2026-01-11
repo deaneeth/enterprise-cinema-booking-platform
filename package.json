@@ -4,5 +4,8 @@
     "react-query": "^3.39.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0"
   }
 }

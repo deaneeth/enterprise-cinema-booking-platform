@@ -18,6 +18,7 @@ import userRoutes from './routes/users';
 import cinemaRoutes from './routes/cinemas';
 import movieRoutes from './routes/movies';
 import bookingRoutes from './routes/bookings';
+import seatRoutes from './routes/seats';
 
 // Service imports
 import websocketService from './services/websocket';
@@ -90,6 +91,9 @@ app.use('/api', showtimeRoutes);
 
 // Booking routes
 app.use('/api', bookingRoutes);
+
+// Seat routes (Member 6)
+app.use('/api/seats', seatRoutes);
 
 // ============================================
 // ERROR HANDLING
