@@ -10,17 +10,21 @@ import { IUser } from '../models/User';
 /* =======================
   Populated Booking Type
 ======================= */
+interface PopulatedMovie {
+  title: string;
+  posterUrl?: string;
+}
+
+interface PopulatedCinema {
+  name: string;
+  location?: string;
+}
+
 interface PopulatedShowtime {
-  movie: {
-    title: string;
-    posterUrl?: string;
-  };
-  cinema: {
-    name: string;
-    location?: string;
-  };
-  date: Date;
-  startTime: string;
+  movieId: PopulatedMovie;
+  cinemaId: PopulatedCinema;
+  date?: Date;
+  startTime: string | Date;
   screenNumber: number;
 }
 
@@ -32,8 +36,8 @@ interface PopulatedSeat {
 
 interface PopulatedBooking {
   _id: string;
-  showtime: PopulatedShowtime;
-  seats: PopulatedSeat[];
+  showtimeId: PopulatedShowtime; // Note: Mongoose uses 'showtimeId' for the populated field
+  seatIds: PopulatedSeat[]; // Note: Mongoose uses 'seatIds' for the populated field
   totalAmount: number;
   qrCode?: string;
 }
@@ -57,21 +61,35 @@ class EmailService {
       ? new Date(payment.paymentDate).toLocaleString()
       : new Date().toLocaleString();
 
-    const showDate = new Date(booking.showtime.date).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    // Handle both date and startTime as fallback for showDate
+    const showDateValue = booking.showtimeId.date || booking.showtimeId.startTime;
+    const showDate = showDateValue 
+      ? new Date(showDateValue).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })
+      : 'TBD';
 
-    const seatNumbers = booking.seats.map((s) => s.seatNumber).join(', ');
+    // Format startTime for display
+    const startTimeStr = booking.showtimeId.startTime
+      ? new Date(booking.showtimeId.startTime).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : 'TBD';
+
+    const seatNumbers = booking.seatIds.map((s) => s.seatNumber).join(', ') || 'N/A';
+    const movieTitle = booking.showtimeId.movieId?.title || 'Movie';
+    const cinemaName = booking.showtimeId.cinemaId?.name || 'Cinema';
 
     console.log(`
       ╔══════════════════════════════════════════════════════════════╗
       ║              PAYMENT CONFIRMATION EMAIL                      ║
       ╠══════════════════════════════════════════════════════════════╣
       ║ To: ${user.email}
-      ║ Subject: Payment Confirmed - ${booking.showtime.movie.title}
+      ║ Subject: Payment Confirmed - ${movieTitle}
       ║
       ║ Dear ${user.firstName},
       ║
@@ -89,11 +107,11 @@ class EmailService {
       ║ BOOKING DETAILS
       ║ ────────────────────────────────────────────────────────────
       ║ Booking Reference: ${booking._id}
-      ║ Movie: ${booking.showtime.movie.title}
-      ║ Cinema: ${booking.showtime.cinema.name}
-      ║ Screen: ${booking.showtime.screenNumber}
+      ║ Movie: ${movieTitle}
+      ║ Cinema: ${cinemaName}
+      ║ Screen: ${booking.showtimeId.screenNumber}
       ║ Date: ${showDate}
-      ║ Time: ${booking.showtime.startTime}
+      ║ Time: ${startTimeStr}
       ║ Seats: ${seatNumbers}
       ║
       ║ Show your QR code at the cinema entrance.
@@ -107,7 +125,7 @@ class EmailService {
     // await sendgrid.send({
     //   to: user.email,
     //   from: 'noreply@cinebook.com',
-    //   subject: `Payment Confirmed - ${booking.showtime.movie.title}`,
+    //   subject: `Payment Confirmed - ${movieTitle}`,
     //   html: generateEmailTemplate(booking, payment, user),
     // });
   }
@@ -123,7 +141,7 @@ class EmailService {
     payment: PaymentDocument,
     user: IUser
   ): Promise<void> {
-    const movieTitle = booking.showtime?.movie?.title || 'Your booking';
+    const movieTitle = booking.showtimeId?.movieId?.title || 'Your booking';
 
     console.log(`
       ╔══════════════════════════════════════════════════════════════╗
@@ -165,21 +183,35 @@ class EmailService {
     booking: PopulatedBooking,
     user: IUser
   ): Promise<void> {
-    const showDate = new Date(booking.showtime.date).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    // Handle both date and startTime as fallback for showDate
+    const showDateValue = booking.showtimeId.date || booking.showtimeId.startTime;
+    const showDate = showDateValue 
+      ? new Date(showDateValue).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })
+      : 'TBD';
 
-    const seatNumbers = booking.seats.map((s) => s.seatNumber).join(', ');
+    // Format startTime for display
+    const startTimeStr = booking.showtimeId.startTime
+      ? new Date(booking.showtimeId.startTime).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : 'TBD';
+
+    const seatNumbers = booking.seatIds.map((s) => s.seatNumber).join(', ') || 'N/A';
+    const movieTitle = booking.showtimeId.movieId?.title || 'Movie';
+    const cinemaName = booking.showtimeId.cinemaId?.name || 'Cinema';
 
     console.log(`
       ╔══════════════════════════════════════════════════════════════╗
       ║              BOOKING CONFIRMATION EMAIL                      ║
       ╠══════════════════════════════════════════════════════════════╣
       ║ To: ${user.email}
-      ║ Subject: Booking Confirmed - ${booking.showtime.movie.title}
+      ║ Subject: Booking Confirmed - ${movieTitle}
       ║
       ║ Dear ${user.firstName},
       ║
@@ -189,11 +221,11 @@ class EmailService {
       ║ BOOKING DETAILS
       ║ ────────────────────────────────────────────────────────────
       ║ Booking Reference: ${booking._id}
-      ║ Movie: ${booking.showtime.movie.title}
-      ║ Cinema: ${booking.showtime.cinema.name}
-      ║ Screen: ${booking.showtime.screenNumber}
+      ║ Movie: ${movieTitle}
+      ║ Cinema: ${cinemaName}
+      ║ Screen: ${booking.showtimeId.screenNumber}
       ║ Date: ${showDate}
-      ║ Time: ${booking.showtime.startTime}
+      ║ Time: ${startTimeStr}
       ║ Seats: ${seatNumbers}
       ║ Total Amount: USD ${booking.totalAmount.toFixed(2)}
       ║
@@ -216,7 +248,7 @@ class EmailService {
     user: IUser,
     reason?: string
   ): Promise<void> {
-    const movieTitle = booking.showtime?.movie?.title || 'Your booking';
+    const movieTitle = booking.showtimeId?.movieId?.title || 'Your booking';
     const cancellationReason = reason || 'User requested cancellation';
 
     console.log(`
