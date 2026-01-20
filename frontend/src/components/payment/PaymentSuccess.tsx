@@ -1,10 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Payment, Booking, Showtime, Movie, Cinema } from "../../services/api";
 
-/**
- * Extended types for populated booking data
- */
 interface PopulatedShowtime extends Omit<Showtime, "movieId" | "cinemaId"> {
   movieId: Movie;
   cinemaId: Cinema;
@@ -25,534 +22,346 @@ interface PopulatedBooking extends Omit<Booking, "showtimeId" | "seatIds"> {
   qrCode?: string;
 }
 
-/**
- * Props interface for PaymentSuccess component
- */
 interface PaymentSuccessProps {
   booking: Booking | PopulatedBooking;
   payment: Payment;
 }
 
-/**
- * PaymentSuccess component for confirmed bookings
- * Shows booking confirmation with QR code and details
- */
-const PaymentSuccess: React.FC<PaymentSuccessProps> = ({
+interface TicketCardProps {
+  booking: PopulatedBooking;
+  payment: Payment;
+  qrCodeUrl: string;
+  ticketRef: React.RefObject<HTMLDivElement>;
+}
+
+const TicketCard: React.FC<TicketCardProps> = ({
   booking,
   payment,
+  qrCodeUrl,
+  ticketRef,
 }) => {
-  const navigate = useNavigate();
-  const [copied, setCopied] = useState(false);
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
-
-  // Cast to populated booking for type safety
-  const populatedBooking = booking as PopulatedBooking;
-  const showtime = populatedBooking.showtimeId;
+  const showtime = booking.showtimeId;
   const movie = typeof showtime === "object" ? showtime.movieId : null;
   const cinema = typeof showtime === "object" ? showtime.cinemaId : null;
-  const seats = Array.isArray(populatedBooking.seatIds)
-    ? populatedBooking.seatIds
-    : [];
+  const seats = Array.isArray(booking.seatIds) ? booking.seatIds : [];
 
-  // Generate QR code image URL using the booking's QR code string or ID
-  useEffect(() => {
-    // Use the qrCode string if available, otherwise use booking ID
-    const qrData = populatedBooking.qrCode || booking._id;
-    // Generate QR code image using public API
-    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
-    setQrCodeUrl(qrApiUrl);
-  }, [booking._id, populatedBooking.qrCode]);
-
-  /**
-   * Copy booking reference to clipboard
-   */
-  const handleCopyReference = async (): Promise<void> => {
-    try {
-      const reference = booking._id?.slice(-8).toUpperCase() || "";
-      await navigator.clipboard.writeText(reference);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-    }
-  };
-
-  /**
-   * Format date for display
-   */
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  /**
-   * Format time for display
-   */
-  const formatTime = (dateString: string): string => {
-    return new Date(dateString).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  /**
-   * Format payment date
-   */
-  const formatPaymentDate = (dateString?: string): string => {
-    if (!dateString) return "Just now";
-    return new Date(dateString).toLocaleString("en-US", {
+  const formatDate = (dateString: string): string =>
+    new Date(dateString).toLocaleDateString("en-US", {
+      weekday: "short",
       month: "short",
       day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
     });
-  };
 
-  /**
-   * Get seat numbers as comma-separated string
-   */
-  const getSeatNumbers = (): string => {
-    if (seats.length === 0) return "N/A";
-    return seats
-      .map((seat) => seat.seatNumber || `${seat.row}${seat.column}`)
-      .join(", ");
-  };
+  const formatTime = (dateString: string): string =>
+    new Date(dateString).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
 
-  /**
-   * Download QR code as image
-   */
-  const handleDownloadQR = async (): Promise<void> => {
-    if (!qrCodeUrl) return;
-
-    try {
-      // Fetch the QR code image
-      const response = await fetch(qrCodeUrl);
-      const blob = await response.blob();
-
-      // Create a blob URL and trigger download
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = `booking-${booking._id?.slice(-8)}-qr.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Clean up the blob URL
-      URL.revokeObjectURL(blobUrl);
-    } catch (err) {
-      console.error("Failed to download QR code:", err);
-      // Fallback: open QR code in new tab
-      window.open(qrCodeUrl, "_blank");
-    }
-  };
+  const getSeatLabels = (): string =>
+    seats.length === 0
+      ? "N/A"
+      : seats.map((s) => s.seatNumber || `${s.row}${s.column}`).join(", ");
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-gray-50 py-8 px-4 print:bg-white print:py-0">
-      <div className="max-w-2xl mx-auto">
-        {/* Success Header */}
-        <div className="text-center mb-8">
-          {/* Animated Checkmark */}
-          <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 animate-bounce">
-            <svg
-              className="w-12 h-12 text-green-500"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
+    <div
+      ref={ticketRef}
+      style={{
+        width: "320px",
+        fontFamily:
+          "-apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif",
+        borderRadius: "20px",
+        background: "#fff",
+        boxShadow:
+          "0 20px 40px -12px rgba(0,0,0,0.12), 0 4px 16px -4px rgba(0,0,0,0.08)",
+        overflow: "hidden",
+      }}
+    >
+      <div className="p-5">
+        <div className="flex gap-3">
+          <div style={{ borderRadius: "10px", overflow: "hidden", flexShrink: 0 }}>
+            {movie?.posterUrl ? (
+              <img
+                src={movie.posterUrl}
+                alt={movie?.title}
+                style={{ width: "64px", height: "96px", objectFit: "cover" }}
               />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Payment Successful!
-          </h1>
-          <p className="text-gray-600 text-lg">Your tickets are confirmed</p>
-        </div>
-
-        {/* Main Card */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          {/* Booking Reference */}
-          <div className="bg-green-600 text-white px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 text-sm">Booking Reference</p>
-                <p className="text-2xl font-mono font-bold tracking-wider">
-                  #{booking._id?.slice(-8).toUpperCase() || "N/A"}
-                </p>
-              </div>
-              <button
-                onClick={handleCopyReference}
-                className="flex items-center gap-2 bg-green-700 hover:bg-green-800 px-3 py-2 rounded-md transition-colors"
+            ) : (
+              <div
+                className="bg-gray-100 flex items-center justify-center"
+                style={{ width: "64px", height: "96px" }}
               >
-                {copied ? (
-                  <>
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                    <span className="text-sm">Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <span className="text-sm">Copy</span>
-                  </>
-                )}
-              </button>
-            </div>
+                <span className="text-gray-300 text-xs">No img</span>
+              </div>
+            )}
           </div>
-
-          {/* QR Code Section */}
-          <div className="p-6 border-b border-gray-200 text-center bg-gray-50">
-            <div className="inline-block p-4 bg-white rounded-lg shadow-sm mb-4">
-              {qrCodeUrl ? (
-                <img
-                  src={qrCodeUrl}
-                  alt="Booking QR Code"
-                  className="w-48 h-48 mx-auto"
-                />
-              ) : (
-                <div className="w-48 h-48 flex items-center justify-center bg-gray-100 rounded">
-                  <svg
-                    className="animate-spin h-8 w-8 text-gray-400"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                      fill="none"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                </div>
-              )}
-            </div>
-            <p className="text-gray-600 font-medium mb-2">
-              Show this QR code at the cinema
-            </p>
-            <button
-              onClick={handleDownloadQR}
-              className="text-sm text-indigo-600 hover:text-indigo-700 underline print:hidden"
+          <div className="flex-1 min-w-0">
+            <h3
+              className="font-semibold text-gray-900 truncate"
+              style={{ fontSize: "16px", letterSpacing: "-0.01em" }}
             >
-              Download QR Code
-            </button>
-          </div>
-
-          {/* Booking Details */}
-          <div className="p-6">
-            <div className="flex gap-4 mb-6">
-              {/* Movie Poster */}
-              {movie?.posterUrl && (
-                <div className="flex-shrink-0">
-                  <img
-                    src={movie.posterUrl}
-                    alt={movie.title}
-                    className="w-24 h-36 object-cover rounded-lg shadow-sm"
-                  />
-                </div>
-              )}
-
-              {/* Movie Info */}
-              <div className="flex-1 min-w-0">
-                <h3 className="text-xl font-bold text-gray-900 mb-1">
-                  {movie?.title || "Movie"}
-                </h3>
-                {movie?.rating && (
-                  <span className="inline-block px-2 py-0.5 text-xs font-semibold text-yellow-800 bg-yellow-100 rounded mb-3">
-                    {movie.rating}
-                  </span>
-                )}
-
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <svg
-                      className="w-4 h-4 text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                      />
-                    </svg>
-                    <span>{cinema?.name || "Cinema"}</span>
-                    {showtime?.screenNumber && (
-                      <span className="text-gray-400">
-                        • Screen {showtime.screenNumber}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <svg
-                      className="w-4 h-4 text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <span>
-                      {showtime?.startTime
-                        ? formatDate(showtime.startTime)
-                        : "Date TBD"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <svg
-                      className="w-4 h-4 text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span>
-                      {showtime?.startTime
-                        ? formatTime(showtime.startTime)
-                        : "Time TBD"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <svg
-                      className="w-4 h-4 text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
-                      />
-                    </svg>
-                    <span className="font-medium">{getSeatNumbers()}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Amount Paid */}
-            <div className="border-t border-gray-200 pt-4 mb-6">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Amount Paid</span>
-                <span className="text-2xl font-bold text-green-600">
-                  {payment.currency || "USD"}{" "}
-                  {payment.amount?.toFixed(2) || "0.00"}
-                </span>
-              </div>
-            </div>
-
-            {/* Payment Details */}
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                Payment Details
-              </h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Payment Method</span>
-                  <span className="text-gray-900 flex items-center gap-2">
-                    {payment.paymentMethod === "paypal" ? (
-                      <>
-                        <svg
-                          className="w-4 h-4"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                        >
-                          <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.77.77 0 0 1 .757-.645h6.93c2.603 0 4.447.532 5.472 1.582.976 1 1.268 2.264.867 3.77-.483 1.808-1.426 3.119-2.8 3.899-1.37.778-3.143 1.166-5.263 1.166H8.89a.769.769 0 0 0-.757.645l-.953 5.56a.641.641 0 0 1-.632.543l-.472 3.097Z" />
-                        </svg>
-                        PayPal
-                      </>
-                    ) : (
-                      <>
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                          />
-                        </svg>
-                        {payment.paymentDetails?.cardBrand || "Card"} ****
-                        {payment.paymentDetails?.cardLastFour || "****"}
-                      </>
-                    )}
-                  </span>
-                </div>
-
-                {payment.paypalCaptureId && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Transaction ID</span>
-                    <span className="text-gray-900 font-mono text-xs">
-                      ...{payment.paypalCaptureId.slice(-8).toUpperCase()}
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Date</span>
-                  <span className="text-gray-900">
-                    {formatPaymentDate(payment.paymentDate)}
-                  </span>
-                </div>
-
-                {payment.payerEmail && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Payer Email</span>
-                    <span className="text-gray-900">{payment.payerEmail}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 print:hidden">
-              <button
-                onClick={() => navigate("/profile?tab=bookings")}
-                className="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center gap-2"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
-                  />
-                </svg>
-                View My Bookings
-              </button>
-              <button
-                onClick={() => navigate("/movies")}
-                className="flex-1 bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors font-medium flex items-center justify-center gap-2"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"
-                  />
-                </svg>
-                Back to Movies
-              </button>
-            </div>
-          </div>
-
-          {/* Email Confirmation Note */}
-          <div className="bg-blue-50 px-6 py-4 border-t border-blue-100">
-            <div className="flex items-start gap-3">
-              <svg
-                className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
-              </svg>
-              <p className="text-sm text-blue-800">
-                A confirmation email has been sent to your registered email
-                address with your booking details and QR code.
+              {movie?.title || "Movie"}
+            </h3>
+            <p className="text-gray-400 text-xs mt-0.5">
+              {(showtime as any)?.format || "2D"} • {movie?.rating || "NR"}
+            </p>
+            <div className="mt-2" style={{ color: "#B8860B" }}>
+              <p className="font-semibold" style={{ fontSize: "17px" }}>
+                {showtime?.startTime ? formatDate(showtime.startTime) : "TBD"}
+              </p>
+              <p className="font-semibold" style={{ fontSize: "17px" }}>
+                {showtime?.startTime ? formatTime(showtime.startTime) : "TBD"}
               </p>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Print Button */}
-        <div className="text-center mt-6 print:hidden">
-          <button
-            onClick={() => window.print()}
-            className="text-gray-500 hover:text-gray-700 text-sm flex items-center gap-2 mx-auto"
+      <div className="relative py-3">
+        <div
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-8"
+          style={{ background: "#e8e8ed", borderRadius: "0 16px 16px 0" }}
+        />
+        <div
+          className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-8"
+          style={{ background: "#e8e8ed", borderRadius: "16px 0 0 16px" }}
+        />
+        <div className="mx-6 border-t-2 border-dashed border-gray-200" />
+      </div>
+
+      <div className="px-5 py-3">
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <p className="text-gray-400 uppercase tracking-wide" style={{ fontSize: "10px" }}>
+              Cinema
+            </p>
+            <p className="text-gray-900 font-medium mt-0.5 truncate">
+              {cinema?.name || "Cinema"}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-400 uppercase tracking-wide" style={{ fontSize: "10px" }}>
+              Seats
+            </p>
+            <p className="text-gray-900 font-medium mt-0.5">{getSeatLabels()}</p>
+          </div>
+          <div>
+            <p className="text-gray-400 uppercase tracking-wide" style={{ fontSize: "10px" }}>
+              Screen
+            </p>
+            <p className="text-gray-900 font-medium mt-0.5">
+              Hall {showtime?.screenNumber || "1"}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-400 uppercase tracking-wide" style={{ fontSize: "10px" }}>
+              Order
+            </p>
+            <p className="text-gray-900 font-medium mt-0.5">
+              #{booking._id?.slice(-6).toUpperCase()}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="mx-5 mb-5 py-5 flex flex-col items-center"
+        style={{ background: "#fafafa", borderRadius: "14px" }}
+      >
+        {qrCodeUrl ? (
+          <img src={qrCodeUrl} alt="QR" style={{ width: "120px", height: "120px" }} />
+        ) : (
+          <div
+            className="bg-gray-200 flex items-center justify-center"
+            style={{ width: "120px", height: "120px", borderRadius: "8px" }}
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
-              />
+            <span className="text-gray-400 text-xs">Loading...</span>
+          </div>
+        )}
+        <p className="text-gray-400 text-sm mt-3">Scan this QR code at the entrance</p>
+      </div>
+
+      <div className="px-5 py-4 text-center" style={{ background: "#f5f5f5" }}>
+        <p className="text-gray-600 text-sm">
+          Total: <span className="font-semibold" style={{ color: "#34c759" }}>${payment.amount?.toFixed(2)}</span>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const PaymentSuccess: React.FC<PaymentSuccessProps> = ({ booking, payment }) => {
+  const navigate = useNavigate();
+  const [copied, setCopied] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [isDownloading, setIsDownloading] = useState(false);
+  const ticketRef = useRef<HTMLDivElement>(null);
+  const populatedBooking = booking as PopulatedBooking;
+
+  useEffect(() => {
+    const qrData = populatedBooking.qrCode || booking._id;
+    setQrCodeUrl(
+      `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`
+    );
+  }, [booking._id, populatedBooking.qrCode]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(booking._id?.slice(-8).toUpperCase() || "");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+
+  const handleDownload = async () => {
+    if (!ticketRef.current || isDownloading) return;
+    setIsDownloading(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(ticketRef.current, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+      });
+      const link = document.createElement("a");
+      link.download = `ticket-${booking._id?.slice(-8)}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    } catch {
+      alert("Download failed. Please try again.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center overflow-hidden"
+      style={{
+        background: "linear-gradient(180deg, #f5f5f7 0%, #e8e8ed 100%)",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif",
+      }}
+    >
+      <div className="flex items-center gap-20 px-12">
+        <div style={{ width: "380px" }}>
+          <div
+            className="w-16 h-16 flex items-center justify-center mb-6"
+            style={{
+              background: "linear-gradient(135deg, #34c759 0%, #30a14e 100%)",
+              borderRadius: "50%",
+              boxShadow: "0 8px 24px rgba(52,199,89,0.4)",
+            }}
+          >
+            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
-            Print Ticket
+          </div>
+
+          <h1
+            className="text-3xl font-bold text-gray-900 mb-3"
+            style={{ letterSpacing: "-0.02em" }}
+          >
+            Payment Successful
+          </h1>
+          <p className="text-gray-500 leading-relaxed mb-8" style={{ fontSize: "15px" }}>
+            Your ticket is confirmed. Show the QR code at the cinema entrance.
+          </p>
+
+          <div
+            className="p-5 mb-5"
+            style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 2px 16px rgba(0,0,0,0.06)" }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm">Reference</p>
+                <p
+                  className="font-bold text-gray-900 mt-1"
+                  style={{ fontSize: "22px", fontFamily: "ui-monospace, monospace", letterSpacing: "0.04em" }}
+                >
+                  #{booking._id?.slice(-8).toUpperCase()}
+                </p>
+              </div>
+              <button
+                onClick={handleCopy}
+                className="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+                style={{
+                  background: copied ? "#dcfce7" : "#fff",
+                  color: copied ? "#166534" : "#1d1d1f",
+                  border: copied ? "1px solid #86efac" : "1px solid #e5e5e5",
+                }}
+              >
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+              <span className="text-gray-400 text-sm">Amount Paid</span>
+              <span className="font-bold text-xl" style={{ color: "#34c759" }}>
+                ${payment.amount?.toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="w-full py-3.5 font-semibold text-white rounded-xl mb-3 flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
+            style={{
+              background: "linear-gradient(135deg, #007aff 0%, #0055b3 100%)",
+              boxShadow: "0 4px 14px rgba(0,122,255,0.35)",
+              fontSize: "16px",
+            }}
+          >
+            {isDownloading ? (
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            )}
+            Download Ticket
           </button>
+
+          <button
+            onClick={() => navigate("/profile?tab=bookings")}
+            className="w-full py-3.5 font-semibold rounded-xl mb-3 transition-colors"
+            style={{
+              background: "#fff",
+              color: "#1d1d1f",
+              boxShadow: "0 1px 8px rgba(0,0,0,0.06)",
+              fontSize: "16px",
+            }}
+          >
+            View My Bookings
+          </button>
+
+          <button
+            onClick={() => navigate("/movies")}
+            className="w-full py-2 font-medium text-sm transition-colors"
+            style={{ color: "#007aff" }}
+          >
+            Back to Movies
+          </button>
+        </div>
+
+        <div className="h-96 w-px" style={{ background: "rgba(0,0,0,0.08)" }} />
+
+        <div className="flex flex-col items-center">
+          <p
+            className="text-xs font-medium uppercase tracking-widest mb-4"
+            style={{ color: "#86868b", letterSpacing: "0.15em" }}
+          >
+            Your Ticket
+          </p>
+          <TicketCard
+            booking={populatedBooking}
+            payment={payment}
+            qrCodeUrl={qrCodeUrl}
+            ticketRef={ticketRef}
+          />
         </div>
       </div>
     </div>
