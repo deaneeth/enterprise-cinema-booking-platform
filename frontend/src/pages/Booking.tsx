@@ -4,7 +4,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api, { getErrorMessage } from "../services/api";
+import api, { bookingsApi, getErrorMessage } from "../services/api";
 import { useBooking } from "../contexts/BookingContext";
 import { useAuth } from "../contexts/AuthContext";
 import websocketClient from "../services/websocket";
@@ -74,7 +74,10 @@ const Booking: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [, setIsCreatingBooking] = useState(false);
   const [selectedSeats, setSelectedSeats] = useState<SeatData[]>([]);
-  const [holdTimeRemaining] = useState<number | null>(null);
+  const [holdTimeRemaining, setHoldTimeRemaining] = useState<number | null>(
+    null
+  );
+  const [checkingExistingBooking, setCheckingExistingBooking] = useState(true);
 
   // Calculate total price
   const totalPrice = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
@@ -125,6 +128,16 @@ const Booking: React.FC = () => {
   }, [showtimeId, setCurrentShowtime]);
 
   /**
+   * No auto-redirect needed for existing bookings.
+   * SeatMap auto-restores user's held seats on page load.
+   * User can see their selection and choose to proceed to payment.
+   */
+  useEffect(() => {
+    // Just mark as done checking - no redirect needed
+    setCheckingExistingBooking(false);
+  }, []);
+
+  /**
    * Connect to WebSocket for real-time seat updates
    */
   useEffect(() => {
@@ -150,18 +163,21 @@ const Booking: React.FC = () => {
 
   /**
    * Handle seat selection from SeatMap
+   * Clean flow: Just add to local state, seat is already held via SeatMap's API call
+   * NO booking created during selection - booking only created on "Proceed to Payment"
    */
   const handleSeatSelect = useCallback(
     (seat: SeatData) => {
+      // Add seat to local selection (seat is already held on backend by SeatMap)
       setSelectedSeats((prev) => {
-        const isSelected = prev.some((s) => s._id === seat._id);
-        if (!isSelected) {
-          return [...prev, seat];
+        const isAlreadySelected = prev.some((s) => s._id === seat._id);
+        if (isAlreadySelected) {
+          return prev;
         }
-        return prev;
+        return [...prev, seat];
       });
 
-      // Add to context for booking creation
+      // Add to context for UI tracking
       addSeat({
         id: seat._id,
         row: seat.row,
@@ -176,6 +192,7 @@ const Booking: React.FC = () => {
 
   /**
    * Handle seat deselection from SeatMap
+   * Seat is released via SeatMap's API call, just update local state here
    */
   const handleSeatDeselect = useCallback(
     (seatId: string) => {
@@ -187,6 +204,8 @@ const Booking: React.FC = () => {
 
   /**
    * Handle proceed to payment
+   * Clean flow: Create ONE booking with ALL selected seats
+   * This is the ONLY place a booking is created
    */
   const handleProceedToPayment = async () => {
     if (!showtimeId || selectedSeats.length === 0) return;
@@ -196,44 +215,121 @@ const Booking: React.FC = () => {
       clearError();
 
       const seatIds = selectedSeats.map((seat) => seat._id);
-      const booking = await createBooking(showtimeId, seatIds);
 
-      // Navigate to payment page with booking info
-      navigate(`/payment/${booking.id}`, {
+      // Create booking with all selected seats
+      console.log("[Booking] Creating booking with", seatIds.length, "seats");
+      const booking = await createBooking(showtimeId, seatIds);
+      const newBookingId =
+        (booking as { id?: string; _id?: string }).id ||
+        (booking as { id?: string; _id?: string })._id ||
+        null;
+
+      if (!newBookingId) {
+        throw new Error("Failed to create booking");
+      }
+
+      // Navigate to payment page
+      navigate(`/payment/${newBookingId}`, {
         state: {
-          booking,
+          bookingId: newBookingId,
           showtime,
           totalPrice,
         },
       });
     } catch (err) {
       console.error("Failed to create booking:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to create booking";
+      
+      // Check if error is due to existing pending booking
+      if (errorMessage.includes('already have a pending booking')) {
+        // Fetch existing booking and redirect
+        try {
+          const response = await bookingsApi.getMyBookings({ status: 'pending' });
+          if (response.data.success && response.data.data) {
+            const bookings = response.data.data as Array<{
+              _id: string;
+              showtimeId: string | { _id: string };
+              expiresAt?: string;
+            }>;
+            const existingBooking = bookings.find((b) => {
+              const bookingShowtimeId = typeof b.showtimeId === 'string' 
+                ? b.showtimeId 
+                : b.showtimeId?._id;
+              return bookingShowtimeId === showtimeId;
+            });
+            if (existingBooking) {
+              navigate(`/payment/${existingBooking._id}`, { replace: true });
+              return;
+            }
+          }
+        } catch {
+          // If we can't find existing booking, show error
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsCreatingBooking(false);
     }
   };
 
   /**
-   * Handle clear selection - release all held seats on backend
+   * Handle clear selection - release all held seats
+   * No booking exists during selection phase, just release seats
    */
   const handleClearSelection = async () => {
-    // Release all selected seats on the backend
-    try {
-      await Promise.all(
-        selectedSeats.map((seat) =>
-          api.put(`/api/seats/${seat._id}/release`).catch((err) => {
-            console.error(`Failed to release seat ${seat.seatNumber}:`, err);
-          })
-        )
-      );
-    } catch (err) {
-      console.error("Error releasing seats:", err);
-    }
+    // Release all held seats via API
+    await Promise.all(
+      selectedSeats.map((seat) =>
+        api.put(`/api/seats/${seat._id}/release`).catch(() => {
+          // Ignore errors - seat might already be released
+        })
+      )
+    );
 
-    // Clear frontend state
+    // Clear local state
     setSelectedSeats([]);
+    setHoldTimeRemaining(null);
     clearSeats();
   };
+
+  /**
+   * Timer - uses seat.heldUntil (earliest expiry among selected seats)
+   * Since no booking exists during selection, timer is based on seat holds
+   */
+  useEffect(() => {
+    if (selectedSeats.length === 0) {
+      setHoldTimeRemaining(null);
+      return;
+    }
+
+    const updateRemaining = () => {
+      // Find earliest expiry among all selected seats
+      const seatsWithHoldTime = selectedSeats.filter((s) => s.heldUntil);
+      
+      if (seatsWithHoldTime.length === 0) {
+        // No heldUntil info - seats are held but timer not shown
+        return;
+      }
+
+      const earliestExpiry = Math.min(
+        ...seatsWithHoldTime.map((s) => new Date(s.heldUntil!).getTime())
+      );
+
+      const remaining = Math.max(0, Math.floor((earliestExpiry - Date.now()) / 1000));
+      setHoldTimeRemaining(remaining);
+
+      // If timer expired, clear selection
+      if (remaining === 0) {
+        setSelectedSeats([]);
+        clearSeats();
+      }
+    };
+
+    updateRemaining();
+    const interval = setInterval(updateRemaining, 1000);
+    return () => clearInterval(interval);
+  }, [selectedSeats, clearSeats]);
 
   /**
    * Handle cancel and go back - release held seats first
@@ -293,9 +389,9 @@ const Booking: React.FC = () => {
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
-  // Loading state
-  if (loading) {
-    return <Loading fullScreen message="Loading showtime details..." />;
+  // Loading state (including check for existing booking)
+  if (loading || checkingExistingBooking) {
+    return <Loading fullScreen message={checkingExistingBooking ? "Checking for existing booking..." : "Loading showtime details..."} />;
   }
 
   // Error state
