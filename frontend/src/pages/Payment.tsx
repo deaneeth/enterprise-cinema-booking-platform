@@ -59,10 +59,11 @@ interface PopulatedBooking {
   seatIds: Seat[];
   numberOfSeats: number;
   totalAmount: number;
-  bookingStatus: "pending" | "confirmed" | "cancelled";
+  bookingStatus: "pending" | "confirmed" | "cancelled" | "expired";
   bookingDate: string;
   paymentId?: string;
   qrCode?: string;
+  expiresAt?: string; // Single source of truth for timer
   createdAt: string;
   updatedAt: string;
 }
@@ -93,6 +94,7 @@ const PaymentPage: React.FC = () => {
   const [successPayment, setSuccessPayment] = useState<Payment | null>(null);
   const [successBooking, setSuccessBooking] = useState<Booking | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [redirectCountdown, setRedirectCountdown] = useState<number>(5); // 5 second countdown for expired redirect
 
   /**
    * Fetch booking details
@@ -120,7 +122,16 @@ const PaymentPage: React.FC = () => {
           const bookingData = response.data.data as PopulatedBooking;
           setBooking(bookingData);
 
-          // Check if booking is already confirmed or cancelled
+          // Debug: Log seats info
+          console.log('[Payment] Booking fetched:', {
+            bookingId: bookingData._id,
+            numberOfSeats: bookingData.numberOfSeats,
+            seatIdsLength: bookingData.seatIds?.length,
+            seats: bookingData.seatIds?.map(s => s.seatNumber),
+            totalAmount: bookingData.totalAmount,
+          });
+
+          // Check if booking is already confirmed, cancelled, or expired
           if (bookingData.bookingStatus === "confirmed") {
             // Redirect to movies page for already confirmed bookings
             // They can view their booking in profile
@@ -134,13 +145,24 @@ const PaymentPage: React.FC = () => {
             return;
           } else if (bookingData.bookingStatus === "cancelled") {
             setPaymentState("cancelled");
+            return;
+          } else if (bookingData.bookingStatus === "expired") {
+            // Booking already expired on backend - set expired state immediately
+            setPaymentState("expired");
+            setTimeRemaining(0);
+            return;
           }
 
-          // Calculate time remaining based on booking creation time
-          const createdAt = new Date(bookingData.createdAt).getTime();
-          const now = Date.now();
-          const elapsed = Math.floor((now - createdAt) / 1000);
-          const remaining = Math.max(0, 600 - elapsed); // 10 minutes = 600 seconds
+          // Calculate time remaining from expiresAt (single source of truth)
+          const expiresAtTime = bookingData.expiresAt
+            ? new Date(bookingData.expiresAt).getTime()
+            : 0;
+          const serverTime = (response.data as { serverTime?: string }).serverTime;
+          const serverNow = serverTime ? new Date(serverTime).getTime() : Date.now();
+          const remaining = Math.max(
+            0,
+            Math.floor((expiresAtTime - serverNow) / 1000),
+          );
           setTimeRemaining(remaining);
 
           if (remaining === 0 && bookingData.bookingStatus === "pending") {
@@ -179,6 +201,50 @@ const PaymentPage: React.FC = () => {
 
     return () => clearInterval(timer);
   }, [paymentState, timeRemaining]);
+
+  /**
+   * Auto-redirect effect when booking expires
+   * Shows countdown banner and redirects to booking page after 5 seconds
+   * Stores expired seat IDs for potential re-selection
+   */
+  useEffect(() => {
+    if (paymentState !== "expired" || !booking) return;
+
+    // Store expired seat info for potential re-selection
+    const expiredSeatInfo = {
+      showtimeId: booking.showtimeId?._id,
+      movieId: booking.showtimeId?.movieId?._id,
+      seatIds: booking.seatIds?.map((seat) => seat._id) || [],
+      seatNumbers: booking.seatIds?.map((seat) => seat.seatNumber) || [],
+      expiredAt: new Date().toISOString(),
+    };
+    sessionStorage.setItem("expiredSeats", JSON.stringify(expiredSeatInfo));
+
+    // Start redirect countdown
+    const countdownTimer = setInterval(() => {
+      setRedirectCountdown((prev) => {
+        if (prev <= 1) {
+          // Redirect to movie detail page for rebooking
+          const movieId = booking.showtimeId?.movieId?._id;
+          if (movieId) {
+            navigate(`/movies/${movieId}`, {
+              state: {
+                expiredBooking: true,
+                previousShowtimeId: booking.showtimeId?._id,
+                previousSeatNumbers: expiredSeatInfo.seatNumbers,
+              },
+            });
+          } else {
+            navigate("/movies");
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(countdownTimer);
+  }, [paymentState, booking, navigate]);
 
   /**
    * Format countdown time
@@ -302,46 +368,109 @@ const PaymentPage: React.FC = () => {
     );
   }
 
-  // Expired state
+  // Expired state with auto-redirect
   if (paymentState === "expired") {
+    const movieId = booking.showtimeId?.movieId?._id;
+    const previousSeats = booking.seatIds?.map((seat) => seat.seatNumber).join(", ");
+    
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
-          <svg
-            className="mx-auto h-12 w-12 text-yellow-500 mb-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
-            Booking Expired
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Your booking has expired due to the 10-minute payment window. The
-            seats have been released and are available for other customers.
-          </p>
-          <div className="space-y-3">
-            <button
-              onClick={() =>
-                navigate(`/movies/${booking.showtimeId?.movieId?._id}`)
-              }
-              className="w-full bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 transition-colors"
+        <div className="max-w-md w-full bg-white rounded-lg shadow-md overflow-hidden">
+          {/* Expired Banner with Countdown */}
+          <div className="bg-amber-500 text-white px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span className="font-semibold">Session Expired</span>
+              </div>
+              <div className="text-sm bg-amber-600 px-3 py-1 rounded-full">
+                Redirecting in {redirectCountdown}s
+              </div>
+            </div>
+          </div>
+          
+          {/* Content */}
+          <div className="p-8 text-center">
+            <svg
+              className="mx-auto h-16 w-16 text-amber-500 mb-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              Book Again
-            </button>
-            <button
-              onClick={() => navigate("/movies")}
-              className="w-full bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300 transition-colors"
-            >
-              Browse Movies
-            </button>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              Booking Expired
+            </h2>
+            <p className="text-gray-600 mb-4">
+              Your 10-minute payment window has ended. The seats have been released
+              and are available for other customers.
+            </p>
+            
+            {/* Previous seat info */}
+            {previousSeats && (
+              <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
+                <p className="text-sm text-gray-500 mb-1">Your previous selection:</p>
+                <p className="font-medium text-gray-800">
+                  Seats: {previousSeats}
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  We'll try to help you re-select these seats if still available.
+                </p>
+              </div>
+            )}
+            
+            {/* Progress bar for redirect */}
+            <div className="w-full bg-gray-200 rounded-full h-2 mb-6 overflow-hidden">
+              <div 
+                className="bg-amber-500 h-2 rounded-full transition-all duration-1000 ease-linear"
+                style={{ width: `${(redirectCountdown / 5) * 100}%` }}
+              />
+            </div>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  if (movieId) {
+                    navigate(`/movies/${movieId}`, {
+                      state: {
+                        expiredBooking: true,
+                        previousShowtimeId: booking.showtimeId?._id,
+                        previousSeatNumbers: booking.seatIds?.map((s) => s.seatNumber),
+                      },
+                    });
+                  } else {
+                    navigate("/movies");
+                  }
+                }}
+                className="w-full bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700 transition-colors font-medium"
+              >
+                Book Again Now
+              </button>
+              <button
+                onClick={() => navigate("/movies")}
+                className="w-full bg-gray-100 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Browse Other Movies
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -350,6 +479,9 @@ const PaymentPage: React.FC = () => {
 
   // Cancelled state
   if (paymentState === "cancelled") {
+    const movieId = booking?.showtimeId?.movieId?._id;
+    const showtimeIdForReturn = booking?.showtimeId?._id;
+
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
@@ -373,12 +505,33 @@ const PaymentPage: React.FC = () => {
             Your booking has been cancelled. The seats have been released and
             are available for other customers.
           </p>
-          <button
-            onClick={() => navigate("/movies")}
-            className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 transition-colors"
-          >
-            Return to Movies
-          </button>
+          <div className="space-y-3">
+            {/* Option 1: Go back to seat selection for same showtime */}
+            {showtimeIdForReturn && (
+              <button
+                onClick={() => navigate(`/booking/${showtimeIdForReturn}`)}
+                className="w-full bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 transition-colors"
+              >
+                Select Different Seats
+              </button>
+            )}
+            {/* Option 2: Go back to movie detail page */}
+            {movieId && (
+              <button
+                onClick={() => navigate(`/movies/${movieId}`)}
+                className="w-full bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300 transition-colors"
+              >
+                Choose Different Showtime
+              </button>
+            )}
+            {/* Option 3: Browse all movies */}
+            <button
+              onClick={() => navigate("/movies")}
+              className="w-full text-gray-500 hover:text-gray-700 px-6 py-2 transition-colors text-sm"
+            >
+              Browse Other Movies
+            </button>
+          </div>
         </div>
       </div>
     );
