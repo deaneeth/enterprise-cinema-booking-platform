@@ -2,6 +2,7 @@
 // PayPal Payment Service - Handles PayPal checkout integration
 // Uses @paypal/checkout-server-sdk for order creation, capture, and refunds
 
+/// <reference path="../types/paypal.d.ts" />
 import paypal from '@paypal/checkout-server-sdk';
 import { env } from '../config/environment';
 
@@ -211,7 +212,10 @@ class PayPalService {
    * @param amount - Amount to refund (optional, full refund if not specified)
    * @returns Refund details
    */
-  async processRefund(captureId: string, amount?: number): Promise<RefundResponse> {
+  async processRefund(
+    captureId: string,
+    amount?: number
+  ): Promise<RefundResponse> {
     const request = new paypal.payments.CapturesRefundRequest(captureId);
 
     if (amount) {

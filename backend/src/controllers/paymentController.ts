@@ -316,11 +316,29 @@ export const capturePayPalPayment = async (req: Request, res: Response) => {
         await Seat.updateMany(
           { _id: { $in: booking.seatIds } },
           {
-            status: 'booked',
-            heldBy: null,
-            heldUntil: null,
+            $set: {
+              status: 'booked',
+              bookingId: booking._id,
+              heldBy: null,
+              heldUntil: null,
+            },
           }
         );
+
+        // Broadcast WebSocket updates for booked seats (real-time update for all users)
+        const websocketService = (await import('../services/websocket'))
+          .default;
+        const showtimeId = booking.showtimeId.toString();
+
+        for (const seatId of booking.seatIds) {
+          websocketService.broadcastSeatUpdate(showtimeId, {
+            seatId: seatId.toString(),
+            status: 'booked',
+          });
+        }
+
+        // Broadcast seats refresh for the entire showtime
+        websocketService.broadcastSeatsRefresh(showtimeId);
       }
     }
 
@@ -420,10 +438,11 @@ export const getPaymentById = async (req: Request, res: Response) => {
     }
 
     // Check ownership or admin - handle both populated and unpopulated userId
-    const paymentOwnerId = typeof payment.userId === 'object' 
-      ? (payment.userId as any)._id?.toString()
-      : String(payment.userId);
-    
+    const paymentOwnerId =
+      typeof payment.userId === 'object'
+        ? (payment.userId as any)._id?.toString()
+        : String(payment.userId);
+
     if (paymentOwnerId !== userId && !isPlatformAdmin(req)) {
       return res.status(403).json({
         success: false,
@@ -616,9 +635,11 @@ export const processRefund = async (req: Request, res: Response) => {
         await Seat.updateMany(
           { _id: { $in: booking.seatIds } },
           {
-            status: 'available',
-            heldBy: null,
-            heldUntil: null,
+            $set: {
+              status: 'available',
+              heldBy: null,
+              heldUntil: null,
+            },
           }
         );
       }
@@ -842,9 +863,11 @@ export const cancelPayment = async (req: Request, res: Response) => {
         await Seat.updateMany(
           { _id: { $in: booking.seatIds } },
           {
-            status: 'available',
-            heldBy: null,
-            heldUntil: null,
+            $set: {
+              status: 'available',
+              heldBy: null,
+              heldUntil: null,
+            },
           }
         );
       }
