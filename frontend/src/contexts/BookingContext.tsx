@@ -59,7 +59,7 @@ export interface Booking {
   bookingDate: string;
   paymentId?: string;
   qrCode?: string;
-  holdExpiresAt?: string;
+  expiresAt?: string; // Single source of truth for timer
   showtime?: Showtime;
   seats?: Seat[];
 }
@@ -218,15 +218,15 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
         if (response.data.success && response.data.data) {
           const bookingData = response.data.data as {
             booking: Booking;
-            holdExpiresAt: string;
+            expiresAt: string; // Single source of truth from backend
           };
 
           const booking = bookingData.booking;
           setCurrentBooking(booking);
 
-          // Set hold expiration
-          if (bookingData.holdExpiresAt) {
-            setHoldExpiresAt(new Date(bookingData.holdExpiresAt));
+          // Set hold expiration from expiresAt (single source of truth)
+          if (bookingData.expiresAt) {
+            setHoldExpiresAt(new Date(bookingData.expiresAt));
           }
 
           return booking;
