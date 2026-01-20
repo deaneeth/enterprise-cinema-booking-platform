@@ -54,10 +54,18 @@ import paypalService from '../../services/payment';
 
 // Type the mocked service using jest.mocked
 const mockedPaypalService = {
-  createOrder: paypalService.createOrder as jest.MockedFunction<typeof paypalService.createOrder>,
-  capturePayment: paypalService.capturePayment as jest.MockedFunction<typeof paypalService.capturePayment>,
-  processRefund: paypalService.processRefund as jest.MockedFunction<typeof paypalService.processRefund>,
-  getOrderDetails: paypalService.getOrderDetails as jest.MockedFunction<typeof paypalService.getOrderDetails>,
+  createOrder: paypalService.createOrder as jest.MockedFunction<
+    typeof paypalService.createOrder
+  >,
+  capturePayment: paypalService.capturePayment as jest.MockedFunction<
+    typeof paypalService.capturePayment
+  >,
+  processRefund: paypalService.processRefund as jest.MockedFunction<
+    typeof paypalService.processRefund
+  >,
+  getOrderDetails: paypalService.getOrderDetails as jest.MockedFunction<
+    typeof paypalService.getOrderDetails
+  >,
 };
 
 let mongoServer: MongoMemoryServer;
@@ -77,7 +85,8 @@ const createUserWithToken = async (
   }>
 ) => {
   const user = new User({
-    email: overrides?.email || `test-${Date.now()}-${Math.random()}@example.com`,
+    email:
+      overrides?.email || `test-${Date.now()}-${Math.random()}@example.com`,
     password: 'password123',
     firstName: 'Test',
     lastName: 'User',
@@ -134,8 +143,8 @@ const createTestBooking = async (
   showtimeId: mongoose.Types.ObjectId,
   options?: {
     status?: 'pending' | 'confirmed' | 'cancelled';
-    createdAt?: Date;
     totalAmount?: number;
+    expiresAt?: Date;
   }
 ) => {
   const seatIds = generateSeatIds(2);
@@ -147,7 +156,7 @@ const createTestBooking = async (
     totalAmount: options?.totalAmount ?? 30.0,
     bookingStatus: options?.status ?? 'pending',
     bookingDate: new Date(),
-    createdAt: options?.createdAt ?? new Date(),
+    expiresAt: options?.expiresAt ?? new Date(Date.now() + 10 * 60 * 1000),
   });
   return booking;
 };
@@ -235,7 +244,8 @@ describe('Payment API', () => {
 
       // Mock PayPal service
       const mockOrderId = 'PAYPAL-ORDER-123';
-      const mockApprovalUrl = 'https://sandbox.paypal.com/checkout?token=PAYPAL-ORDER-123';
+      const mockApprovalUrl =
+        'https://sandbox.paypal.com/checkout?token=PAYPAL-ORDER-123';
       mockedPaypalService.createOrder.mockResolvedValue({
         orderId: mockOrderId,
         approvalUrl: mockApprovalUrl,
@@ -324,10 +334,10 @@ describe('Payment API', () => {
       const { user, token } = await createUserWithToken();
       const { showtime } = await createTestShowtime(cinema._id);
 
-      // Create booking that expired 15 minutes ago
-      const expiredDate = new Date(Date.now() - 15 * 60 * 1000);
+      // Create booking that expired 5 minutes ago
+      const expiredExpiresAt = new Date(Date.now() - 5 * 60 * 1000);
       const booking = await createTestBooking(user._id, showtime._id, {
-        createdAt: expiredDate,
+        expiresAt: expiredExpiresAt,
       });
 
       const res = await request(app)
@@ -632,9 +642,7 @@ describe('Payment API', () => {
     it('should require authentication', async () => {
       const paymentId = new mongoose.Types.ObjectId().toString();
 
-      await request(app)
-        .post(`/api/payments/${paymentId}/refund`)
-        .expect(401);
+      await request(app).post(`/api/payments/${paymentId}/refund`).expect(401);
     });
 
     it('should reject if payment not found', async () => {
@@ -652,7 +660,9 @@ describe('Payment API', () => {
     it('should allow admin to refund any payment', async () => {
       const cinema = await Cinema.create({ name: 'Test Cinema' });
       const { user: regularUser } = await createUserWithToken();
-      const { token: adminToken } = await createUserWithToken({ role: 'platform_admin' });
+      const { token: adminToken } = await createUserWithToken({
+        role: 'platform_admin',
+      });
       const { showtime } = await createTestShowtime(cinema._id);
       const booking = await createTestBooking(regularUser._id, showtime._id, {
         status: 'confirmed',
@@ -721,8 +731,12 @@ describe('Payment API', () => {
       const bookingA = await createTestBooking(userA._id, showtime._id);
       const bookingB = await createTestBooking(userB._id, showtime._id);
 
-      await createTestPayment(bookingA._id, userA._id, { paypalOrderId: 'ORDER-A' });
-      await createTestPayment(bookingB._id, userB._id, { paypalOrderId: 'ORDER-B' });
+      await createTestPayment(bookingA._id, userA._id, {
+        paypalOrderId: 'ORDER-A',
+      });
+      await createTestPayment(bookingB._id, userB._id, {
+        paypalOrderId: 'ORDER-B',
+      });
 
       const res = await request(app)
         .get('/api/payments/my-payments')
@@ -735,9 +749,7 @@ describe('Payment API', () => {
     });
 
     it('should require authentication', async () => {
-      await request(app)
-        .get('/api/payments/my-payments')
-        .expect(401);
+      await request(app).get('/api/payments/my-payments').expect(401);
     });
 
     it('should return payments sorted by date descending', async () => {
@@ -750,11 +762,17 @@ describe('Payment API', () => {
       const booking3 = await createTestBooking(user._id, showtime._id);
 
       // Create payments with slight delay to ensure different timestamps
-      await createTestPayment(booking1._id, user._id, { paypalOrderId: 'ORDER-OLD' });
+      await createTestPayment(booking1._id, user._id, {
+        paypalOrderId: 'ORDER-OLD',
+      });
       await new Promise((resolve) => setTimeout(resolve, 10));
-      await createTestPayment(booking2._id, user._id, { paypalOrderId: 'ORDER-MID' });
+      await createTestPayment(booking2._id, user._id, {
+        paypalOrderId: 'ORDER-MID',
+      });
       await new Promise((resolve) => setTimeout(resolve, 10));
-      await createTestPayment(booking3._id, user._id, { paypalOrderId: 'ORDER-NEW' });
+      await createTestPayment(booking3._id, user._id, {
+        paypalOrderId: 'ORDER-NEW',
+      });
 
       const res = await request(app)
         .get('/api/payments/my-payments')
@@ -818,7 +836,9 @@ describe('Payment API', () => {
     it('should allow admin to view any payment', async () => {
       const cinema = await Cinema.create({ name: 'Test Cinema' });
       const { user: regularUser } = await createUserWithToken();
-      const { token: adminToken } = await createUserWithToken({ role: 'platform_admin' });
+      const { token: adminToken } = await createUserWithToken({
+        role: 'platform_admin',
+      });
       const { showtime } = await createTestShowtime(cinema._id);
       const booking = await createTestBooking(regularUser._id, showtime._id);
       const payment = await createTestPayment(booking._id, regularUser._id, {
@@ -842,15 +862,21 @@ describe('Payment API', () => {
       const cinema = await Cinema.create({ name: 'Test Cinema' });
       const { user: user1 } = await createUserWithToken();
       const { user: user2 } = await createUserWithToken();
-      const { token: adminToken } = await createUserWithToken({ role: 'platform_admin' });
+      const { token: adminToken } = await createUserWithToken({
+        role: 'platform_admin',
+      });
       const { showtime } = await createTestShowtime(cinema._id);
 
       // Create payments for different users
       const booking1 = await createTestBooking(user1._id, showtime._id);
       const booking2 = await createTestBooking(user2._id, showtime._id);
 
-      await createTestPayment(booking1._id, user1._id, { paypalOrderId: 'ORDER-USER1' });
-      await createTestPayment(booking2._id, user2._id, { paypalOrderId: 'ORDER-USER2' });
+      await createTestPayment(booking1._id, user1._id, {
+        paypalOrderId: 'ORDER-USER1',
+      });
+      await createTestPayment(booking2._id, user2._id, {
+        paypalOrderId: 'ORDER-USER2',
+      });
 
       const res = await request(app)
         .get('/api/payments')
@@ -876,7 +902,9 @@ describe('Payment API', () => {
     it('should filter payments by status', async () => {
       const cinema = await Cinema.create({ name: 'Test Cinema' });
       const { user } = await createUserWithToken();
-      const { token: adminToken } = await createUserWithToken({ role: 'platform_admin' });
+      const { token: adminToken } = await createUserWithToken({
+        role: 'platform_admin',
+      });
       const { showtime } = await createTestShowtime(cinema._id);
 
       const booking1 = await createTestBooking(user._id, showtime._id);
@@ -905,7 +933,9 @@ describe('Payment API', () => {
     it('should support pagination', async () => {
       const cinema = await Cinema.create({ name: 'Test Cinema' });
       const { user } = await createUserWithToken();
-      const { token: adminToken } = await createUserWithToken({ role: 'platform_admin' });
+      const { token: adminToken } = await createUserWithToken({
+        role: 'platform_admin',
+      });
       const { showtime } = await createTestShowtime(cinema._id);
 
       // Create 5 payments
@@ -928,9 +958,7 @@ describe('Payment API', () => {
     });
 
     it('should require authentication', async () => {
-      await request(app)
-        .get('/api/payments')
-        .expect(401);
+      await request(app).get('/api/payments').expect(401);
     });
   });
 });

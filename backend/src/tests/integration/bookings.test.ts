@@ -20,6 +20,7 @@ import Movie from '../../models/Movie';
 import Cinema from '../../models/Cinema';
 import Showtime from '../../models/Showtime';
 import Booking from '../../models/Booking';
+import Seat from '../../models/Seat';
 
 // Mock WebSocket service to avoid actual socket connections
 jest.mock('../../services/websocket', () => ({
@@ -61,8 +62,35 @@ const createUserWithToken = async (
 };
 
 /**
- * Helper function to generate valid MongoDB ObjectIds for seats
- * The booking controller validates seatIds as ObjectIds
+ * Helper function to create actual seats for a showtime and return their IDs
+ * This is needed because the booking controller validates seat existence
+ */
+const createTestSeats = async (
+  showtimeId: mongoose.Types.ObjectId | string,
+  count: number,
+  price: number = 1200
+): Promise<string[]> => {
+  const seats = [];
+  for (let i = 0; i < count; i++) {
+    const row = String.fromCharCode(65 + Math.floor(i / 10)); // A, B, C...
+    const column = (i % 10) + 1;
+    seats.push({
+      showtimeId: new mongoose.Types.ObjectId(showtimeId),
+      seatNumber: `${row}${column}`,
+      row,
+      column,
+      seatType: 'regular',
+      status: 'available',
+      price,
+    });
+  }
+  const createdSeats = await Seat.insertMany(seats);
+  return createdSeats.map((s) => s._id.toString());
+};
+
+/**
+ * Helper function to generate valid MongoDB ObjectIds for seats (legacy - for tests that don't need real seats)
+ * @deprecated Use createTestSeats instead for tests that create bookings
  */
 const generateSeatIds = (count: number): string[] => {
   return Array.from({ length: count }, () =>
@@ -136,6 +164,7 @@ afterEach(async () => {
     Cinema.deleteMany({}),
     Showtime.deleteMany({}),
     Booking.deleteMany({}),
+    Seat.deleteMany({}),
   ]);
 });
 
@@ -158,7 +187,8 @@ describe('Booking Integration', () => {
       });
       const { user, token } = await createUserWithToken();
       const { showtime } = await createTestShowtime(adminToken, cinema._id);
-      const seatIds = generateSeatIds(2);
+      // Create actual seats for the showtime
+      const seatIds = await createTestSeats(showtime._id, 2, showtime.price);
 
       const res = await request(app)
         .post('/api/bookings')
@@ -173,7 +203,7 @@ describe('Booking Integration', () => {
       expect(res.body.data.booking).toBeDefined();
       expect(res.body.data.booking.numberOfSeats).toBe(2);
       expect(res.body.data.booking.bookingStatus).toBe('pending');
-      expect(res.body.data.holdExpiresAt).toBeDefined();
+      expect(res.body.data.expiresAt).toBeDefined();
     });
 
     it('should require authentication', async () => {
@@ -235,7 +265,7 @@ describe('Booking Integration', () => {
       });
 
       // Request more seats than available
-      const seatIds = generateSeatIds(3);
+      const seatIds = await createTestSeats(showtime._id, 3, showtime.price);
 
       const res = await request(app)
         .post('/api/bookings')
@@ -260,7 +290,7 @@ describe('Booking Integration', () => {
       });
       const { token } = await createUserWithToken();
       const { showtime } = await createTestShowtime(adminToken, cinema._id);
-      const seatIds = generateSeatIds(2);
+      const seatIds = await createTestSeats(showtime._id, 2, showtime.price);
 
       // Create booking first
       const createRes = await request(app)
@@ -294,7 +324,7 @@ describe('Booking Integration', () => {
       });
       const { token } = await createUserWithToken();
       const { showtime } = await createTestShowtime(adminToken, cinema._id);
-      const seatIds = generateSeatIds(1);
+      const seatIds = await createTestSeats(showtime._id, 1, showtime.price);
       const paymentId = new mongoose.Types.ObjectId().toString();
 
       // Create and confirm booking
@@ -331,7 +361,7 @@ describe('Booking Integration', () => {
       const { token: token1 } = await createUserWithToken();
       const { token: token2 } = await createUserWithToken();
       const { showtime } = await createTestShowtime(adminToken, cinema._id);
-      const seatIds = generateSeatIds(1);
+      const seatIds = await createTestSeats(showtime._id, 1, showtime.price);
 
       // User 1 creates booking
       const createRes = await request(app)
@@ -360,7 +390,7 @@ describe('Booking Integration', () => {
       });
       const { token } = await createUserWithToken();
       const { showtime } = await createTestShowtime(adminToken, cinema._id);
-      const seatIds = generateSeatIds(2);
+      const seatIds = await createTestSeats(showtime._id, 2, showtime.price);
 
       // Create booking
       const createRes = await request(app)
@@ -392,7 +422,7 @@ describe('Booking Integration', () => {
       });
       const { token } = await createUserWithToken();
       const { showtime } = await createTestShowtime(adminToken, cinema._id);
-      const seatIds = generateSeatIds(1);
+      const seatIds = await createTestSeats(showtime._id, 1, showtime.price);
 
       // Create booking
       const createRes = await request(app)
@@ -478,7 +508,7 @@ describe('Booking Integration', () => {
       const { token: token1 } = await createUserWithToken();
       const { token: token2 } = await createUserWithToken();
       const { showtime } = await createTestShowtime(adminToken, cinema._id);
-      const seatIds = generateSeatIds(1);
+      const seatIds = await createTestSeats(showtime._id, 1, showtime.price);
 
       // User 1 creates booking
       const createRes = await request(app)
@@ -506,7 +536,7 @@ describe('Booking Integration', () => {
       });
       const { token } = await createUserWithToken();
       const { showtime } = await createTestShowtime(adminToken, cinema._id);
-      const seatIds = generateSeatIds(1);
+      const seatIds = await createTestSeats(showtime._id, 1, showtime.price);
 
       // Create booking
       const createRes = await request(app)
@@ -540,7 +570,7 @@ describe('Booking Integration', () => {
       const { token: token1 } = await createUserWithToken();
       const { token: token2 } = await createUserWithToken();
       const { showtime } = await createTestShowtime(adminToken, cinema._id);
-      const seatIds = generateSeatIds(1);
+      const seatIds = await createTestSeats(showtime._id, 1, showtime.price);
 
       // User 1 creates booking
       const createRes = await request(app)
@@ -570,16 +600,18 @@ describe('Booking Integration', () => {
       const { showtime } = await createTestShowtime(adminToken, cinema._id);
 
       // Create multiple bookings
+      const seatIds1 = await createTestSeats(showtime._id, 1, showtime.price);
       await request(app)
         .post('/api/bookings')
         .set('Authorization', `Bearer ${token}`)
-        .send({ showtimeId: showtime._id, seatIds: generateSeatIds(1) })
+        .send({ showtimeId: showtime._id, seatIds: seatIds1 })
         .expect(201);
 
+      const seatIds2 = await createTestSeats(showtime._id, 1, showtime.price);
       await request(app)
         .post('/api/bookings')
         .set('Authorization', `Bearer ${token}`)
-        .send({ showtimeId: showtime._id, seatIds: generateSeatIds(1) })
+        .send({ showtimeId: showtime._id, seatIds: seatIds2 })
         .expect(201);
 
       // Get user bookings
@@ -604,10 +636,11 @@ describe('Booking Integration', () => {
       const paymentId = new mongoose.Types.ObjectId().toString();
 
       // Create and confirm one booking
+      const seatIds1 = await createTestSeats(showtime._id, 1, showtime.price);
       const createRes = await request(app)
         .post('/api/bookings')
         .set('Authorization', `Bearer ${token}`)
-        .send({ showtimeId: showtime._id, seatIds: generateSeatIds(1) })
+        .send({ showtimeId: showtime._id, seatIds: seatIds1 })
         .expect(201);
 
       await request(app)
@@ -617,10 +650,11 @@ describe('Booking Integration', () => {
         .expect(200);
 
       // Create pending booking
+      const seatIds2 = await createTestSeats(showtime._id, 1, showtime.price);
       await request(app)
         .post('/api/bookings')
         .set('Authorization', `Bearer ${token}`)
-        .send({ showtimeId: showtime._id, seatIds: generateSeatIds(1) })
+        .send({ showtimeId: showtime._id, seatIds: seatIds2 })
         .expect(201);
 
       // Filter by confirmed status
@@ -654,10 +688,11 @@ describe('Booking Integration', () => {
       );
 
       // Create a booking
+      const seatIds = await createTestSeats(showtime._id, 1, showtime.price);
       await request(app)
         .post('/api/bookings')
         .set('Authorization', `Bearer ${userToken}`)
-        .send({ showtimeId: showtime._id, seatIds: generateSeatIds(1) })
+        .send({ showtimeId: showtime._id, seatIds })
         .expect(201);
 
       // Cinema admin gets all bookings
@@ -698,10 +733,11 @@ describe('Booking Integration', () => {
       expect(initialShowtime?.availableSeats).toBe(50);
 
       // Create booking
+      const seatIds = await createTestSeats(showtime._id, 3, showtime.price);
       const createRes = await request(app)
         .post('/api/bookings')
         .set('Authorization', `Bearer ${token}`)
-        .send({ showtimeId: showtime._id, seatIds: generateSeatIds(3) })
+        .send({ showtimeId: showtime._id, seatIds })
         .expect(201);
 
       // Confirm booking (this is when seats are decremented)
@@ -728,10 +764,11 @@ describe('Booking Integration', () => {
       });
 
       // Create booking
+      const seatIds = await createTestSeats(showtime._id, 2, showtime.price);
       const createRes = await request(app)
         .post('/api/bookings')
         .set('Authorization', `Bearer ${token}`)
-        .send({ showtimeId: showtime._id, seatIds: generateSeatIds(2) })
+        .send({ showtimeId: showtime._id, seatIds })
         .expect(201);
 
       const bookingId = createRes.body.data.booking._id;

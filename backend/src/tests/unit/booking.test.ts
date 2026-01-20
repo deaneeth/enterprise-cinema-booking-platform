@@ -167,7 +167,7 @@ describe('Booking Model', () => {
           bookingStatus: 'invalid_status' as never,
         })
       ).rejects.toThrow(
-        /Booking status must be pending, confirmed, or cancelled/
+        /Booking status must be pending, confirmed, cancelled, or expired/
       );
     });
 
