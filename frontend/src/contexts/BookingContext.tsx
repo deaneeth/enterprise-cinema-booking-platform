@@ -55,7 +55,7 @@ export interface Booking {
   seatIds: string[];
   numberOfSeats: number;
   totalAmount: number;
-  bookingStatus: "pending" | "confirmed" | "cancelled";
+  bookingStatus: "pending" | "confirmed" | "cancelled" | "expired";
   bookingDate: string;
   paymentId?: string;
   qrCode?: string;
@@ -159,7 +159,7 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
         websocketClient.holdSeat(currentShowtime.id, seat.id, currentUser.id);
       }
     },
-    [currentShowtime, currentUser]
+    [currentShowtime, currentUser],
   );
 
   /**
@@ -174,7 +174,7 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
         websocketClient.releaseSeat(currentShowtime.id, seatId);
       }
     },
-    [currentShowtime]
+    [currentShowtime],
   );
 
   /**
@@ -197,7 +197,7 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
     (seatId: string): boolean => {
       return selectedSeats.some((s) => s.id === seatId);
     },
-    [selectedSeats]
+    [selectedSeats],
   );
 
   /* =======================
@@ -241,7 +241,7 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
         setIsLoading(false);
       }
     },
-    []
+    [],
   );
 
   /**
@@ -275,7 +275,7 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
         setIsLoading(false);
       }
     },
-    []
+    [],
   );
 
   /**
@@ -307,7 +307,7 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
         setIsLoading(false);
       }
     },
-    [currentBooking]
+    [currentBooking],
   );
 
   /**
@@ -334,7 +334,7 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
         setIsLoading(false);
       }
     },
-    []
+    [],
   );
 
   /**
@@ -376,7 +376,7 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({
         setIsLoading(false);
       }
     },
-    []
+    [],
   );
 
   /* =======================
