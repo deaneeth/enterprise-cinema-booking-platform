@@ -58,6 +58,7 @@ interface SeatUpdatePayload {
   seatId: string;
   status: 'available' | 'held' | 'booked';
   heldBy?: string;
+  heldUntil?: string;
 }
 
 /* =======================
@@ -313,17 +314,22 @@ class WebSocketService {
    * @param seatId - The seat ID to release
    */
   private async releaseSeat(showtimeId: string, seatId: string): Promise<void> {
-    // Update seat in database if model is available
     const Seat = getSeatModel();
     if (Seat) {
-      await Seat.findByIdAndUpdate(seatId, {
-        status: 'available',
-        heldBy: null,
-        heldUntil: null,
-      });
+      const result = await Seat.findOneAndUpdate(
+        { _id: seatId, status: 'held' },
+        {
+          status: 'available',
+          heldBy: null,
+          heldUntil: null,
+        },
+        { new: true }
+      );
+      if (!result) {
+        return;
+      }
     }
 
-    // Broadcast to all users in the showtime room
     this.io?.to(`showtime:${showtimeId}`).emit('seat:updated', {
       seatId,
       status: 'available',

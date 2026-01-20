@@ -18,6 +18,7 @@ export interface BookingDocument extends Document {
   bookingDate: Date;
   paymentId?: mongoose.Types.ObjectId;
   qrCode?: string;
+  expiresAt?: Date; // When booking hold expires (single source of truth)
   createdAt: Date;
   updatedAt: Date;
 
@@ -80,6 +81,11 @@ const BookingSchema = new Schema<BookingDocument>(
     qrCode: {
       type: String,
     },
+    expiresAt: {
+      type: Date,
+      // Optional for backward compatibility with existing bookings
+      // Required for new bookings (set in controller)
+    },
   },
   {
     timestamps: true,
@@ -113,6 +119,55 @@ BookingSchema.virtual('seats', {
   ref: 'Seat',
   localField: 'seatIds',
   foreignField: '_id',
+});
+
+/* =======================
+  Pre-save Middleware
+======================= */
+BookingSchema.pre('save', function (next) {
+  // Ensure expiresAt is set (Phase 5 requirement)
+  if (!this.expiresAt) {
+    // Default to +10 minutes from now if not explicitly set
+    this.expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  }
+  next();
+});
+
+/* =======================
+  Post-save Middleware - Seat Status Sync
+======================= */
+BookingSchema.post('save', async function (doc: BookingDocument) {
+  try {
+    if (!doc.seatIds || doc.seatIds.length === 0) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let Seat: any;
+    try {
+      Seat = mongoose.model('Seat');
+    } catch {
+      return;
+    }
+
+    if (doc.bookingStatus === 'expired' || doc.bookingStatus === 'cancelled') {
+      await Seat.updateMany(
+        {
+          _id: { $in: doc.seatIds },
+          bookingId: doc._id,
+          status: { $ne: 'booked' },
+        },
+        {
+          $set: {
+            status: 'available',
+            heldBy: null,
+            heldUntil: null,
+            bookingId: null,
+          },
+        }
+      );
+    }
+  } catch (error) {
+    console.error(`[Booking Post-Save] Error:`, error);
+  }
 });
 
 /* =======================
@@ -187,6 +242,17 @@ BookingSchema.index({ bookingStatus: 1 });
 
 // Compound index for admin queries
 BookingSchema.index({ bookingStatus: 1, bookingDate: -1 });
+
+// UNIQUE partial index to prevent duplicate pending bookings for same user+showtime
+// This ensures at the database level that a user can only have ONE pending booking per showtime
+BookingSchema.index(
+  { userId: 1, showtimeId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { bookingStatus: 'pending' },
+    name: 'unique_pending_booking_per_user_showtime',
+  }
+);
 
 /* =======================
   Model Export

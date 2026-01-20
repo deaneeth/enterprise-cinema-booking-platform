@@ -6,10 +6,13 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Payment from '../models/Payment';
 import Booking from '../models/Booking';
+import Showtime from '../models/Showtime';
 import paypalService from '../services/payment';
 import emailService from '../services/email';
+import auditService from '../services/audit';
 // Import to ensure Express Request type is extended with user property
 import '../middlewares/auth';
+import seatCleanupService from '../services/seatCleanup';
 
 /* =======================
   Helper Functions
@@ -33,9 +36,6 @@ const getSeatModel = () => {
     return null;
   }
 };
-
-// Booking expiration duration in milliseconds (10 minutes)
-const BOOKING_EXPIRY_MS = 10 * 60 * 1000;
 
 /* =======================
   1. Create PayPal Order
@@ -99,23 +99,18 @@ export const createPayPalOrder = async (req: Request, res: Response) => {
       });
     }
 
+    // Refresh booking status (Lazy Expiry Check)
+    await seatCleanupService.checkAndExpireBooking(
+      booking,
+      'payment_gate_create'
+    );
+
     // Check booking status is pending
     if (booking.bookingStatus !== 'pending') {
       return res.status(400).json({
         success: false,
         error: {
           message: `Cannot create payment for ${booking.bookingStatus} booking`,
-        },
-      });
-    }
-
-    // Check if booking is expired (10 minute window)
-    const bookingAge = Date.now() - new Date(booking.createdAt).getTime();
-    if (bookingAge > BOOKING_EXPIRY_MS) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: 'Booking has expired. Please create a new booking.',
         },
       });
     }
@@ -169,7 +164,7 @@ export const createPayPalOrder = async (req: Request, res: Response) => {
     );
 
     // Create Payment record
-    await Payment.create({
+    const newPayment = await Payment.create({
       bookingId: booking._id,
       userId: new mongoose.Types.ObjectId(userId),
       amount: booking.totalAmount,
@@ -177,6 +172,15 @@ export const createPayPalOrder = async (req: Request, res: Response) => {
       paymentMethod: 'paypal',
       paymentStatus: 'pending',
       paypalOrderId: orderId,
+    });
+
+    // Audit: Log payment creation
+    auditService.logPaymentCreated({
+      paymentId: newPayment._id.toString(),
+      bookingId: booking._id.toString(),
+      userId,
+      amount: booking.totalAmount,
+      orderId,
     });
 
     res.status(200).json({
@@ -199,13 +203,101 @@ export const createPayPalOrder = async (req: Request, res: Response) => {
   2. Capture PayPal Payment
 ======================= */
 
-/**
- * Capture payment after user approves in PayPal
- * - Finds payment by PayPal order ID
- * - Captures payment through PayPal
- * - Updates payment, booking, and seat statuses
- * - Generates QR code for booking
- */
+const executeConfirmationTransaction = async (
+  paymentId: mongoose.Types.ObjectId,
+  bookingId: mongoose.Types.ObjectId,
+  captureResult: {
+    captureId: string;
+    payerEmail?: string;
+    payerName?: string;
+    paymentMethod?: string;
+    cardDetails?: { brand?: string; lastFour?: string };
+  }
+): Promise<{
+  payment: any;
+  booking: any;
+  seatIds: mongoose.Types.ObjectId[];
+}> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const payment = await Payment.findById(paymentId).session(session);
+    if (!payment || payment.paymentStatus !== 'pending') {
+      throw new Error('Payment no longer valid for confirmation');
+    }
+
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      bookingStatus: 'pending',
+      expiresAt: { $gt: new Date() },
+    }).session(session);
+
+    if (!booking) {
+      throw new Error('Booking no longer valid for confirmation');
+    }
+
+    payment.paymentStatus = 'completed';
+    payment.paypalCaptureId = captureResult.captureId;
+    payment.payerEmail = captureResult.payerEmail;
+    payment.payerName = captureResult.payerName;
+    payment.paymentDate = new Date();
+    if (
+      captureResult.paymentMethod === 'paypal' ||
+      captureResult.paymentMethod === 'card'
+    ) {
+      payment.paymentMethod = captureResult.paymentMethod;
+    }
+    if (captureResult.cardDetails) {
+      payment.paymentDetails = {
+        cardBrand: captureResult.cardDetails.brand,
+        cardLastFour: captureResult.cardDetails.lastFour,
+      };
+    }
+    await payment.save({ session });
+
+    booking.bookingStatus = 'confirmed';
+    booking.paymentId = payment._id as mongoose.Types.ObjectId;
+    booking.generateQRCode();
+    await booking.save({ session });
+
+    const Seat = getSeatModel();
+    const seatIds = booking.seatIds.map((id: any) =>
+      typeof id === 'string' ? new mongoose.Types.ObjectId(id) : id
+    );
+
+    if (Seat && seatIds.length > 0) {
+      await Seat.updateMany(
+        { _id: { $in: seatIds }, status: 'held' },
+        {
+          $set: {
+            status: 'booked',
+            bookingId: booking._id,
+            heldBy: null,
+            heldUntil: null,
+          },
+        },
+        { session }
+      );
+    }
+
+    await Showtime.findByIdAndUpdate(
+      booking.showtimeId,
+      { $inc: { availableSeats: -booking.numberOfSeats } },
+      { session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return { payment, booking, seatIds };
+  } catch (error: any) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
+  }
+};
+
 export const capturePayPalPayment = async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
@@ -217,7 +309,6 @@ export const capturePayPalPayment = async (req: Request, res: Response) => {
     }
 
     const { orderId } = req.body;
-
     if (!orderId) {
       return res.status(400).json({
         success: false,
@@ -225,9 +316,7 @@ export const capturePayPalPayment = async (req: Request, res: Response) => {
       });
     }
 
-    // Find payment by PayPal order ID
     const payment = await Payment.findByPayPalOrderId(orderId);
-
     if (!payment) {
       return res.status(404).json({
         success: false,
@@ -235,7 +324,6 @@ export const capturePayPalPayment = async (req: Request, res: Response) => {
       });
     }
 
-    // Verify payment belongs to current user
     if (payment.userId.toString() !== userId) {
       return res.status(403).json({
         success: false,
@@ -243,26 +331,56 @@ export const capturePayPalPayment = async (req: Request, res: Response) => {
       });
     }
 
-    // Check payment status
     if (payment.paymentStatus !== 'pending') {
       return res.status(400).json({
         success: false,
+        error: { message: `Cannot capture ${payment.paymentStatus} payment` },
+      });
+    }
+
+    const booking = await Booking.findById(payment.bookingId);
+    if (!booking) {
+      payment.paymentStatus = 'failed';
+      await payment.save();
+      return res.status(404).json({
+        success: false,
+        error: { message: 'Booking not found' },
+      });
+    }
+
+    await seatCleanupService.checkAndExpireBooking(
+      booking,
+      'payment_gate_capture'
+    );
+
+    if (
+      booking.bookingStatus === 'expired' ||
+      booking.bookingStatus === 'cancelled'
+    ) {
+      payment.paymentStatus = 'failed';
+      await payment.save();
+      auditService.logPaymentFailed({
+        paymentId: payment._id.toString(),
+        bookingId: booking._id.toString(),
+        userId,
+        reason: `Booking ${booking.bookingStatus} at payment gate`,
+        trigger: 'payment_gate_capture',
+      });
+      return res.status(400).json({
+        success: false,
         error: {
-          message: `Cannot capture ${payment.paymentStatus} payment`,
+          message: `Cannot complete payment: booking has ${booking.bookingStatus}. Please create a new booking.`,
+          code: 'BOOKING_EXPIRED',
         },
       });
     }
 
-    // Capture payment through PayPal
     let captureResult;
     try {
       captureResult = await paypalService.capturePayment(orderId);
     } catch (paypalError: any) {
-      // Update payment status to failed
       payment.paymentStatus = 'failed';
       await payment.save();
-
-      console.error('PayPal capture error:', paypalError);
       return res.status(400).json({
         success: false,
         error: {
@@ -273,77 +391,81 @@ export const capturePayPalPayment = async (req: Request, res: Response) => {
     }
 
     if (!captureResult.success) {
-      // Update payment status to failed
       payment.paymentStatus = 'failed';
       await payment.save();
-
       return res.status(400).json({
         success: false,
         error: { message: 'Payment was not completed successfully' },
       });
     }
 
-    // Update payment with capture details
-    payment.paymentStatus = 'completed';
-    payment.paypalCaptureId = captureResult.captureId;
-    payment.payerEmail = captureResult.payerEmail;
-    payment.payerName = captureResult.payerName;
-    payment.paymentDate = new Date();
-    payment.paymentMethod = captureResult.paymentMethod;
+    let txResult;
+    let retryCount = 0;
+    const maxRetries = 1;
 
-    if (captureResult.cardDetails) {
-      payment.paymentDetails = {
-        cardBrand: captureResult.cardDetails.brand,
-        cardLastFour: captureResult.cardDetails.lastFour,
-      };
-    }
-
-    await payment.save();
-
-    // Update booking status to confirmed
-    const booking = await Booking.findById(payment.bookingId);
-    if (booking) {
-      booking.bookingStatus = 'confirmed';
-      booking.paymentId = payment._id as mongoose.Types.ObjectId;
-
-      // Generate QR code
-      booking.generateQRCode();
-      await booking.save();
-
-      // Update seats to 'booked' status
-      const Seat = getSeatModel();
-      if (Seat && booking.seatIds && booking.seatIds.length > 0) {
-        await Seat.updateMany(
-          { _id: { $in: booking.seatIds } },
-          {
-            $set: {
-              status: 'booked',
-              bookingId: booking._id,
-              heldBy: null,
-              heldUntil: null,
-            },
-          }
+    while (retryCount <= maxRetries) {
+      try {
+        txResult = await executeConfirmationTransaction(
+          payment._id as mongoose.Types.ObjectId,
+          booking._id as mongoose.Types.ObjectId,
+          captureResult
         );
-
-        // Broadcast WebSocket updates for booked seats (real-time update for all users)
-        const websocketService = (await import('../services/websocket'))
-          .default;
-        const showtimeId = booking.showtimeId.toString();
-
-        for (const seatId of booking.seatIds) {
-          websocketService.broadcastSeatUpdate(showtimeId, {
-            seatId: seatId.toString(),
-            status: 'booked',
-          });
+        break;
+      } catch (txError: any) {
+        const isTransient =
+          txError.hasErrorLabel?.('TransientTransactionError') ||
+          txError.message?.includes('TransientTransactionError');
+        if (isTransient && retryCount < maxRetries) {
+          retryCount++;
+          continue;
         }
-
-        // Broadcast seats refresh for the entire showtime
-        websocketService.broadcastSeatsRefresh(showtimeId);
+        console.error('Transaction failed:', txError);
+        return res.status(500).json({
+          success: false,
+          error: {
+            message:
+              'Failed to confirm booking. Payment was captured but confirmation failed. Please contact support.',
+          },
+        });
       }
     }
 
-    // Populate booking for response
-    const populatedBooking = await Booking.findById(payment.bookingId)
+    const websocketService = (await import('../services/websocket')).default;
+    const showtimeId = txResult!.booking.showtimeId.toString();
+
+    for (const seatId of txResult!.seatIds) {
+      websocketService.broadcastSeatUpdate(showtimeId, {
+        seatId: seatId.toString(),
+        status: 'booked',
+      });
+    }
+    websocketService.broadcastSeatsRefresh(showtimeId);
+
+    const updatedShowtime = await Showtime.findById(
+      txResult!.booking.showtimeId
+    );
+    if (updatedShowtime) {
+      websocketService.broadcastShowtimeUpdated(showtimeId, {
+        availableSeats: updatedShowtime.availableSeats,
+      });
+    }
+
+    auditService.logPaymentCaptured({
+      paymentId: txResult!.payment._id.toString(),
+      bookingId: txResult!.booking._id.toString(),
+      userId,
+      amount: txResult!.payment.amount,
+      captureId: captureResult.captureId,
+    });
+    auditService.logBookingConfirmed({
+      bookingId: txResult!.booking._id.toString(),
+      showtimeId: txResult!.booking.showtimeId.toString(),
+      seatIds: txResult!.seatIds.map((id) => id.toString()),
+      userId,
+      paymentId: txResult!.payment._id.toString(),
+    });
+
+    const populatedBooking = await Booking.findById(txResult!.booking._id)
       .populate('userId', 'firstName lastName email')
       .populate({
         path: 'showtimeId',
@@ -354,24 +476,22 @@ export const capturePayPalPayment = async (req: Request, res: Response) => {
       })
       .populate('seatIds');
 
-    // Send email confirmation (console log)
     if (populatedBooking && req.user) {
       try {
         await emailService.sendPaymentConfirmation(
           populatedBooking as any,
-          payment,
+          txResult!.payment,
           req.user as any
         );
       } catch (emailError) {
         console.error('Failed to send confirmation email:', emailError);
-        // Don't fail the request if email fails
       }
     }
 
     res.status(200).json({
       success: true,
       data: {
-        payment,
+        payment: txResult!.payment,
         booking: populatedBooking,
         message: 'Payment captured successfully',
       },

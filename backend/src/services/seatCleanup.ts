@@ -4,7 +4,8 @@
 
 import mongoose from 'mongoose';
 import websocketService from './websocket';
-import Booking from '../models/Booking';
+import auditService from './audit';
+import Booking, { BookingDocument } from '../models/Booking';
 
 // Cleanup interval in milliseconds (run every 30 seconds)
 const CLEANUP_INTERVAL_MS = 30 * 1000;
@@ -12,9 +13,6 @@ const CLEANUP_INTERVAL_MS = 30 * 1000;
 // Booking expiry time in milliseconds (10 minutes)
 const BOOKING_EXPIRY_MS = 10 * 60 * 1000;
 
-/**
- * Get Seat model dynamically
- */
 const getSeatModel = () => {
   try {
     return mongoose.model('Seat');
@@ -23,120 +21,35 @@ const getSeatModel = () => {
   }
 };
 
-/**
- * Clean up expired seat holds
- * - Finds all seats with status 'held' and heldUntil < now
- * - Updates them to 'available' and clears hold info
- * - Broadcasts WebSocket updates for real-time UI refresh
- */
-export const cleanupExpiredHolds = async (): Promise<number> => {
-  const Seat = getSeatModel();
-  if (!Seat) {
-    return 0;
-  }
-
-  const now = new Date();
-
+const getPaymentModel = () => {
   try {
-    // Find all expired held seats
-    const expiredSeats = await Seat.find({
-      status: 'held',
-      heldUntil: { $lt: now },
-    });
-
-    if (expiredSeats.length === 0) {
-      return 0;
-    }
-
-    // Get showtime IDs for WebSocket notifications
-    const showtimeIds = [
-      ...new Set(
-        expiredSeats.map((seat: { showtimeId: { toString: () => string } }) =>
-          seat.showtimeId.toString()
-        )
-      ),
-    ];
-
-    // Update all expired seats to available
-    const result = await Seat.updateMany(
-      {
-        status: 'held',
-        heldUntil: { $lt: now },
-      },
-      {
-        $set: {
-          status: 'available',
-          heldBy: null,
-          heldUntil: null,
-        },
-      }
-    );
-
-    const releasedCount = result.modifiedCount || 0;
-
-    if (releasedCount > 0) {
-      console.log(
-        `[SeatCleanup] Released ${releasedCount} expired seat hold(s)`
-      );
-
-      // Broadcast WebSocket updates for each affected showtime
-      for (const showtimeId of showtimeIds) {
-        // Find the released seats for this showtime
-        const releasedSeatsForShowtime = expiredSeats.filter(
-          (seat: { showtimeId: { toString: () => string } }) =>
-            seat.showtimeId.toString() === showtimeId
-        );
-
-        // Broadcast individual seat updates
-        for (const seat of releasedSeatsForShowtime) {
-          websocketService.broadcastSeatUpdate(showtimeId, {
-            seatId: (
-              seat as { _id: { toString: () => string } }
-            )._id.toString(),
-            status: 'available',
-          });
-        }
-
-        // Broadcast seats refresh for the entire showtime
-        websocketService.broadcastSeatsRefresh(showtimeId);
-      }
-    }
-
-    return releasedCount;
-  } catch (error) {
-    console.error('[SeatCleanup] Error cleaning up expired holds:', error);
-    return 0;
+    return mongoose.model('Payment');
+  } catch {
+    return null;
   }
 };
 
-/**
- * Expire pending bookings that are older than 10 minutes
- * - Finds pending bookings created more than 10 minutes ago
- * - Updates them to 'expired' status
- * - Releases their seats
- */
 export const expirePendingBookings = async (): Promise<number> => {
   const Seat = getSeatModel();
-
-  const expiryThreshold = new Date(Date.now() - BOOKING_EXPIRY_MS);
+  const Payment = getPaymentModel();
+  const now = new Date();
 
   try {
-    // Find all pending bookings older than 10 minutes
     const expiredBookings = await Booking.find({
       bookingStatus: 'pending',
-      createdAt: { $lt: expiryThreshold },
+      expiresAt: { $lte: now },
     });
 
     if (expiredBookings.length === 0) {
       return 0;
     }
 
-    // Collect all seat IDs from expired bookings
+    const bookingIds = expiredBookings.map((b) => b._id);
     const seatIdsToRelease: mongoose.Types.ObjectId[] = [];
     const showtimeIds = new Set<string>();
 
     for (const booking of expiredBookings) {
-      if (booking.seatIds && booking.seatIds.length > 0) {
+      if (booking.seatIds?.length > 0) {
         seatIdsToRelease.push(...booking.seatIds);
       }
       if (booking.showtimeId) {
@@ -144,21 +57,17 @@ export const expirePendingBookings = async (): Promise<number> => {
       }
     }
 
-    // Update all expired bookings to 'expired' status
     const bookingResult = await Booking.updateMany(
-      {
-        bookingStatus: 'pending',
-        createdAt: { $lt: expiryThreshold },
-      },
-      {
-        $set: { bookingStatus: 'expired' },
-      }
+      { _id: { $in: bookingIds }, bookingStatus: 'pending' },
+      { $set: { bookingStatus: 'expired' } }
     );
 
-    // Release seats from expired bookings
     if (Seat && seatIdsToRelease.length > 0) {
       await Seat.updateMany(
-        { _id: { $in: seatIdsToRelease } },
+        {
+          _id: { $in: seatIdsToRelease },
+          status: { $in: ['held', 'available'] },
+        },
         {
           $set: {
             status: 'available',
@@ -170,14 +79,31 @@ export const expirePendingBookings = async (): Promise<number> => {
       );
     }
 
+    // Cancel any pending payments for expired bookings
+    if (Payment && bookingIds.length > 0) {
+      const paymentResult = await Payment.updateMany(
+        { bookingId: { $in: bookingIds }, paymentStatus: 'pending' },
+        { $set: { paymentStatus: 'cancelled' } }
+      );
+      if (paymentResult.modifiedCount > 0) {
+        console.log(
+          `[Cleanup] Cancelled ${paymentResult.modifiedCount} pending payment(s) for expired bookings`
+        );
+      }
+    }
+
     const expiredCount = bookingResult.modifiedCount || 0;
 
     if (expiredCount > 0) {
-      console.log(
-        `[SeatCleanup] Expired ${expiredCount} pending booking(s) and released ${seatIdsToRelease.length} seat(s)`
-      );
-
-      // Broadcast WebSocket updates for affected showtimes
+      console.log(`[Cleanup] Expired ${expiredCount} pending booking(s)`);
+      for (const booking of expiredBookings) {
+        auditService.logHoldExpired({
+          bookingId: booking._id.toString(),
+          showtimeId: booking.showtimeId?.toString() || 'unknown',
+          seatIds: booking.seatIds?.map((id) => id.toString()) || [],
+          trigger: 'cleanup_job',
+        });
+      }
       for (const showtimeId of showtimeIds) {
         websocketService.broadcastSeatsRefresh(showtimeId);
       }
@@ -185,7 +111,194 @@ export const expirePendingBookings = async (): Promise<number> => {
 
     return expiredCount;
   } catch (error) {
-    console.error('[SeatCleanup] Error expiring pending bookings:', error);
+    console.error('[Cleanup] Error expiring pending bookings:', error);
+    return 0;
+  }
+};
+
+/**
+ * Check and expire a specific booking if needed (Lazy Read)
+ * - Checks if booking is pending and expired
+ * - Updates status and releases seats if expired
+ * - Returns the updated booking
+ */
+export const checkAndExpireBooking = async (
+  booking: BookingDocument,
+  trigger: string = 'read'
+): Promise<BookingDocument> => {
+  // Only check pending bookings
+  if (booking.bookingStatus !== 'pending') {
+    return booking;
+  }
+
+  const now = new Date();
+  // Calculate expiry time with fallback
+  const expiresAt = booking.expiresAt
+    ? new Date(booking.expiresAt)
+    : new Date(new Date(booking.createdAt).getTime() + BOOKING_EXPIRY_MS);
+
+  // If not expired, return as is
+  if (now <= expiresAt) {
+    return booking;
+  }
+
+  try {
+    console.log(
+      `[Expiry] Expiring booking ${booking._id} via ${trigger} trigger`
+    );
+
+    // 1. Update booking status
+    booking.bookingStatus = 'expired';
+    await booking.save();
+
+    // 2. Release seats (only if not already booked)
+    const Seat = getSeatModel();
+    if (Seat && booking.seatIds && booking.seatIds.length > 0) {
+      await Seat.updateMany(
+        { _id: { $in: booking.seatIds }, status: { $ne: 'booked' } },
+        {
+          $set: {
+            status: 'available',
+            heldBy: null,
+            heldUntil: null,
+            bookingId: null,
+          },
+        }
+      );
+    }
+
+    // 3. Broadcast WebSocket update
+    if (booking.showtimeId) {
+      const showtimeId = booking.showtimeId.toString();
+      // We can broadcast refresh to be safe
+      websocketService.broadcastSeatsRefresh(showtimeId);
+    }
+
+    // 4. Audit: Log the expiry event
+    auditService.logHoldExpired({
+      bookingId: booking._id.toString(),
+      showtimeId: booking.showtimeId?.toString() || 'unknown',
+      seatIds: booking.seatIds?.map((id) => id.toString()) || [],
+      trigger: trigger as
+        | 'payment_gate_create'
+        | 'payment_gate_capture'
+        | 'api_read'
+        | 'cleanup_job'
+        | 'user_action'
+        | 'system',
+    });
+
+    return booking;
+  } catch (error) {
+    console.error(
+      `[Lazy Expiry] Error expiring booking ${booking._id}:`,
+      error
+    );
+    return booking; // Return original if error
+  }
+};
+
+/**
+ * Sync all seats from confirmed bookings (Startup repair job)
+ * Ensures any seats that should be 'booked' (from confirmed bookings)
+ * are actually marked as 'booked'. This permanently fixes data inconsistencies.
+ */
+export const syncAllConfirmedBookingSeats = async (): Promise<void> => {
+  const Seat = getSeatModel();
+  if (!Seat) {
+    console.log('[SeatSync] Seat model not available, skipping startup sync');
+    return;
+  }
+
+  try {
+    console.log(
+      '[SeatSync] Running startup seat sync for confirmed bookings...'
+    );
+
+    // Find all confirmed bookings with seat IDs
+    const confirmedBookings = await Booking.find({
+      bookingStatus: 'confirmed',
+      seatIds: { $exists: true, $ne: [] },
+    }).select('_id seatIds showtimeId');
+
+    if (confirmedBookings.length === 0) {
+      console.log('[SeatSync] No confirmed bookings found, sync complete');
+      return;
+    }
+
+    let totalSeatsFixed = 0;
+
+    // Process each confirmed booking
+    for (const booking of confirmedBookings) {
+      const result = await Seat.updateMany(
+        {
+          _id: { $in: booking.seatIds },
+          status: { $ne: 'booked' }, // Only update seats not already marked as booked
+        },
+        {
+          $set: {
+            status: 'booked',
+            bookingId: booking._id,
+            heldBy: null,
+            heldUntil: null,
+          },
+        }
+      );
+
+      if (result.modifiedCount > 0) {
+        totalSeatsFixed += result.modifiedCount;
+        console.log(
+          `[SeatSync] Fixed ${result.modifiedCount} seats for booking ${booking._id}`
+        );
+
+        // Broadcast refresh for affected showtime
+        if (booking.showtimeId) {
+          websocketService.broadcastSeatsRefresh(booking.showtimeId.toString());
+        }
+      }
+    }
+
+    if (totalSeatsFixed > 0) {
+      console.log(
+        `[SeatSync] ✅ Startup sync complete: Fixed ${totalSeatsFixed} out-of-sync seats`
+      );
+    } else {
+      console.log(
+        '[SeatSync] ✅ Startup sync complete: All seats already in sync'
+      );
+    }
+  } catch (error) {
+    console.error('[SeatSync] Error during startup seat sync:', error);
+  }
+};
+
+/**
+ * Clean up stale pending payments (older than 1 hour)
+ * These are payments that were created but never captured
+ */
+export const cleanupStalePayments = async (): Promise<number> => {
+  const Payment = getPaymentModel();
+  if (!Payment) return 0;
+
+  try {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const result = await Payment.updateMany(
+      {
+        paymentStatus: 'pending',
+        createdAt: { $lt: oneHourAgo },
+      },
+      { $set: { paymentStatus: 'cancelled' } }
+    );
+
+    if (result.modifiedCount > 0) {
+      console.log(
+        `[Cleanup] Cancelled ${result.modifiedCount} stale pending payment(s)`
+      );
+    }
+
+    return result.modifiedCount || 0;
+  } catch (error) {
+    console.error('[Cleanup] Error cleaning up stale payments:', error);
     return 0;
   }
 };
@@ -202,19 +315,24 @@ export const startCleanupJob = (): void => {
     return;
   }
 
-  console.log(
-    '[SeatCleanup] Starting cleanup job (every 30s): seat holds + pending bookings'
-  );
+  console.log('[Cleanup] Starting cleanup job (every 30s)');
 
-  // Run immediately on start
-  cleanupExpiredHolds();
+  syncAllConfirmedBookingSeats();
   expirePendingBookings();
 
-  // Then run periodically
   cleanupIntervalId = setInterval(async () => {
-    await cleanupExpiredHolds();
     await expirePendingBookings();
+    // Run stale payment cleanup less frequently (every 5 minutes)
+    // Only run when interval count is a multiple of 10 (30s * 10 = 5 min)
   }, CLEANUP_INTERVAL_MS);
+
+  // Separate interval for stale payment cleanup (every 5 minutes)
+  setInterval(
+    async () => {
+      await cleanupStalePayments();
+    },
+    5 * 60 * 1000
+  );
 };
 
 /**
@@ -229,7 +347,10 @@ export const stopCleanupJob = (): void => {
 };
 
 export default {
-  cleanupExpiredHolds,
+  expirePendingBookings,
   startCleanupJob,
   stopCleanupJob,
+  checkAndExpireBooking,
+  syncAllConfirmedBookingSeats,
+  cleanupStalePayments,
 };
