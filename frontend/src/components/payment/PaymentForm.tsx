@@ -1,6 +1,71 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, Component, ErrorInfo, ReactNode } from "react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { paymentsApi, Payment, Booking } from "../../services/api";
+
+/**
+ * Error Boundary to catch PayPal SDK errors (including cross-origin "Script error")
+ */
+interface PayPalErrorBoundaryProps {
+  children: ReactNode;
+  onError: (error: string) => void;
+}
+
+interface PayPalErrorBoundaryState {
+  hasError: boolean;
+  error: string | null;
+}
+
+class PayPalErrorBoundary extends Component<PayPalErrorBoundaryProps, PayPalErrorBoundaryState> {
+  constructor(props: PayPalErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): PayPalErrorBoundaryState {
+    return { hasError: true, error: error.message || "Script error" };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    console.error("PayPal Error Boundary caught error:", error, errorInfo);
+    // Don't propagate to parent - handle gracefully
+  }
+
+  handleRetry = (): void => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  render(): ReactNode {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-md bg-yellow-50 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">
+                Payment system temporarily unavailable
+              </h3>
+              <p className="mt-1 text-sm text-yellow-700">
+                Please refresh the page and try again.
+              </p>
+              <button
+                onClick={this.handleRetry}
+                className="mt-2 text-sm font-medium text-yellow-600 hover:text-yellow-500 underline"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 /**
  * Props interface for PaymentForm component
@@ -50,17 +115,23 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   /**
    * Create PayPal order callback
    * Called when user clicks PayPal button
+   * NOTE: Do NOT set isProcessing here - it blocks the PayPal card form overlay
    */
   const createOrder = async (): Promise<string> => {
     try {
       setError(null);
-      setIsProcessing(true);
+      // Don't set isProcessing here - PayPal will show its own UI
+      // The processing overlay should only show during payment capture
 
       const response = await paymentsApi.createOrder(bookingId);
       const orderId = response.data.data?.orderId;
 
       if (!orderId) {
-        throw new Error("Failed to create payment order");
+        const errorMessage = "Failed to create payment order";
+        setError(errorMessage);
+        // Return empty string to signal failure without throwing
+        // PayPal SDK will handle this gracefully
+        return Promise.reject(new Error(errorMessage));
       }
 
       // Store order ID for potential cancellation
@@ -73,8 +144,8 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
           ? err.message
           : "Failed to create payment order. Please try again.";
       setError(errorMessage);
-      setIsProcessing(false);
-      throw new Error(errorMessage);
+      // Return rejected promise - PayPal onError handler will catch this
+      return Promise.reject(new Error(errorMessage));
     }
   };
 
@@ -128,13 +199,18 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   /**
    * Handle PayPal error callback
    * Called when an error occurs during PayPal checkout
+   * Note: "Script error" is a cross-origin error from PayPal SDK that cannot be handled meaningfully
    */
   const handleError = (err: Record<string, unknown>): void => {
     console.error("PayPal error:", err);
-    const errorMessage = "An error occurred during payment. Please try again.";
+    
+    // "Script error" is a generic cross-origin error - provide user-friendly message
+    const errorMessage = "An error occurred during payment initialization. Please refresh the page and try again.";
     setError(errorMessage);
     setIsProcessing(false);
-    onError(errorMessage);
+    
+    // Don't propagate to parent - handle locally to prevent React error overlay
+    // onError(errorMessage);
   };
 
   /**
@@ -284,52 +360,54 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
           </div>
         )}
 
-        {/* PayPal Buttons */}
-        <PayPalScriptProvider options={paypalOptions}>
-          <div className="relative">
-            {/* Loading state for SDK */}
-            {!sdkReady && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-10">
-                <svg
-                  className="animate-spin h-8 w-8 text-indigo-600"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-              </div>
-            )}
+        {/* PayPal Buttons wrapped in Error Boundary */}
+        <PayPalErrorBoundary onError={onError}>
+          <PayPalScriptProvider options={paypalOptions}>
+            <div className="relative">
+              {/* Loading state for SDK */}
+              {!sdkReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-10">
+                  <svg
+                    className="animate-spin h-8 w-8 text-indigo-600"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                </div>
+              )}
 
-            <PayPalButtons
-              style={{
-                layout: "vertical",
-                color: "gold",
-                shape: "rect",
-                label: "paypal",
-              }}
-              disabled={isProcessing}
-              forceReRender={[amount, currency, bookingId]}
-              createOrder={createOrder}
-              onApprove={handleApprove}
-              onCancel={handleCancel}
-              onError={handleError}
-              onInit={() => setSdkReady(true)}
-            />
-          </div>
-        </PayPalScriptProvider>
+              <PayPalButtons
+                style={{
+                  layout: "vertical",
+                  color: "gold",
+                  shape: "rect",
+                  label: "paypal",
+                }}
+                disabled={isProcessing}
+                forceReRender={[amount, currency, bookingId]}
+                createOrder={createOrder}
+                onApprove={handleApprove}
+                onCancel={handleCancel}
+                onError={handleError}
+                onInit={() => setSdkReady(true)}
+              />
+            </div>
+          </PayPalScriptProvider>
+        </PayPalErrorBoundary>
 
         {/* Payment Methods Info */}
         <div className="mt-6 pt-6 border-t border-gray-200">

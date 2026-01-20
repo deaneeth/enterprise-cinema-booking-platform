@@ -62,30 +62,32 @@ const SeatMap: React.FC<SeatMapProps> = ({
         setLoading(true);
         setError(null);
 
+        // Add timestamp to prevent caching
         const response = await api.get<{
           success: boolean;
           data: {
             allSeats: SeatData[];
             seats: { [key: string]: SeatData[] };
           };
-        }>(`/api/seats/showtime/${showtimeId}`);
+        }>(`/api/seats/showtime/${showtimeId}?_t=${Date.now()}`);
 
         if (response.data.success && response.data.data) {
           const { allSeats, seats: groupedSeats } = response.data.data;
+          console.log('[SeatMap] Fetched seats:', allSeats.length, 'seats. Statuses:', 
+            allSeats.reduce((acc, s) => { acc[s.status] = (acc[s.status] || 0) + 1; return acc; }, {} as Record<string, number>)
+          );
           setSeats(allSeats);
           setSeatsByRow(groupedSeats);
 
-          // Restore seats held by current user to selectedSeats
-          if (currentUser?.id) {
+          // Auto-restore seats held by current user on page load/refresh
+          if (currentUser?.id && selectedSeats.length === 0) {
             const myHeldSeats = allSeats.filter(
               (seat) => seat.status === "held" && seat.heldBy === currentUser.id
             );
-            myHeldSeats.forEach((seat) => {
-              // Only add if not already in selectedSeats
-              if (!selectedSeats.some((s) => s._id === seat._id)) {
-                onSeatSelect(seat);
-              }
-            });
+            if (myHeldSeats.length > 0) {
+              console.log('[SeatMap] Restoring', myHeldSeats.length, 'held seats');
+              myHeldSeats.forEach((seat) => onSeatSelect(seat));
+            }
           }
         } else {
           setError("Failed to load seats");
@@ -109,8 +111,10 @@ const SeatMap: React.FC<SeatMapProps> = ({
       websocketClient?.connect();
     }
     websocketClient?.joinShowtime(showtimeId);
+    console.log('[SeatMap] Joined showtime room:', showtimeId);
 
     const handleSeatUpdated = (data: any) => {
+      console.log('[SeatMap] Received seat:updated event:', data);
       // Update the specific seat that changed
       setSeats((prevSeats) =>
         prevSeats.map((seat) =>
@@ -137,7 +141,8 @@ const SeatMap: React.FC<SeatMapProps> = ({
           updated.set(data.seatId, data.heldBy);
           return updated;
         });
-      } else if (data.status === "available") {
+      } else if (data.status === "available" || data.status === "booked") {
+        // Clear selecting indicator when seat becomes available or booked
         setSelectingUsers((prev) => {
           const updated = new Map(prev);
           updated.delete(data.seatId);
@@ -147,19 +152,24 @@ const SeatMap: React.FC<SeatMapProps> = ({
     };
 
     const handleSeatsRefresh = () => {
+      console.log('[SeatMap] Received seats:refresh event - refetching seats');
       // Refetch all seats
       const fetchSeats = async () => {
         try {
+          // Add timestamp to prevent caching
           const response = await api.get<{
             success: boolean;
             data: {
               allSeats: SeatData[];
               seats: { [key: string]: SeatData[] };
             };
-          }>(`/api/seats/showtime/${showtimeId}`);
+          }>(`/api/seats/showtime/${showtimeId}?_t=${Date.now()}`);
 
           if (response.data.success && response.data.data) {
             const { allSeats, seats: groupedSeats } = response.data.data;
+            console.log('[SeatMap] Refreshed seats:', allSeats.length, 'seats. Statuses:', 
+              allSeats.reduce((acc, s) => { acc[s.status] = (acc[s.status] || 0) + 1; return acc; }, {} as Record<string, number>)
+            );
             setSeats(allSeats);
             setSeatsByRow(groupedSeats);
           }
@@ -205,7 +215,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
     }
   }, [seats]);
 
-  // Hold timer countdown - shows shortest remaining time and auto-releases expired seats
+  // Hold timer countdown - auto-releases expired seats
   useEffect(() => {
     if (selectedSeats.length === 0) {
       setHoldTimer(null);
@@ -260,7 +270,29 @@ const SeatMap: React.FC<SeatMapProps> = ({
         }
       }
 
-      // Calculate shortest remaining time among non-expired held seats
+    }, 1000);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSeats, showtimeId]);
+
+  // Hold timer display - use booking expiresAt when available, otherwise fall back to seat holds
+  // Timer is now handled in Booking.tsx using seat.heldUntil
+  // This local timer is only for internal display if needed
+  useEffect(() => {
+    if (selectedSeats.length === 0) {
+      setHoldTimer(null);
+      return;
+    }
+
+    const seatsWithHoldTime = selectedSeats.filter((s) => s.heldUntil);
+    if (seatsWithHoldTime.length === 0) {
+      setHoldTimer(null);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
       const activeSeats = seatsWithHoldTime.filter((seat) => {
         const holdTime = new Date(seat.heldUntil!).getTime();
         return holdTime > now;
@@ -287,8 +319,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
     }, 1000);
 
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSeats, showtimeId]);
+  }, [selectedSeats]);
 
   // Handle seat click
   const handleSeatClick = async (seat: SeatData) => {
@@ -298,17 +329,29 @@ const SeatMap: React.FC<SeatMapProps> = ({
     }
 
     const isSelected = selectedSeats.some((s) => s._id === seat._id);
+    const isHeldByMe = seat.status === "held" && seat.heldBy === currentUser.id;
+    setError(null);
 
     try {
       if (isSelected) {
-        // Release seat
-        await api.put(`/api/seats/${seat._id}/release`);
+        // Release seat - update UI first, then try API
         onSeatDeselect(seat._id);
         websocketClient?.releaseSeat(showtimeId, seat._id);
+        try {
+          await api.put(`/api/seats/${seat._id}/release`);
+        } catch {
+          // Ignore release errors - seat might already be released/booked
+        }
+      } else if (isHeldByMe && !isSelected) {
+        // Seat is held by me but not in selectedSeats - add to selection without re-holding
+        onSeatSelect(seat);
       } else {
-        // Hold seat
+        // Hold seat - no bookingId during selection phase, booking is created later
+        // Pass first seat's heldUntil so all seats share the same timer
+        const firstSeatHeldUntil = selectedSeats[0]?.heldUntil;
         const response = await api.put<{ success: boolean; data: SeatData }>(
-          `/api/seats/${seat._id}/hold`
+          `/api/seats/${seat._id}/hold`,
+          firstSeatHeldUntil ? { heldUntil: firstSeatHeldUntil } : undefined
         );
 
         if (response.data.success) {
@@ -368,57 +411,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
         </div>
       </div>
 
-      {/* Premium Hold Timer */}
-      {holdTimer !== null && (
-        <div
-          className="rounded-2xl p-4 mb-8 flex items-center justify-between backdrop-blur-sm"
-          style={{
-            background:
-              "linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)",
-            border: "1px solid rgba(59, 130, 246, 0.15)",
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center"
-              style={{
-                background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-              }}
-            >
-              <svg
-                className="w-5 h-5 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <div>
-              <p className="font-medium text-gray-900">Seats Reserved</p>
-              <p className="text-sm text-gray-500">Complete your booking</p>
-            </div>
-          </div>
-          <div className="text-right">
-            <div
-              className="text-3xl font-light tracking-tight"
-              style={{
-                background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              {formatTime(holdTimer)}
-            </div>
-            <p className="text-xs text-gray-400 mt-0.5">remaining</p>
-          </div>
-        </div>
-      )}
+      {/* Timer is displayed in BookingSummary sidebar - removed duplicate here */}
 
       {/* Premium Cinema Screen with Ambient Glow */}
       <div className="mb-10">
