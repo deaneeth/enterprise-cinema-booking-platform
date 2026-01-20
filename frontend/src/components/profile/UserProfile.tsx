@@ -1,19 +1,17 @@
 // UserProfile.tsx (Member 1)
-// User profile component - Displays and edits user information
-// Includes profile display, edit mode, and password change functionality
+// User profile - Redesigned with Apple Human Interface Guidelines
+// Premium UI with soft shadows, generous whitespace, smooth animations
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { usersApi, getErrorMessage } from "../../services/api";
 
-// Edit form data interface
 interface EditFormData {
   firstName: string;
   lastName: string;
   phone: string;
 }
 
-// Password change form data interface
 interface PasswordFormData {
   currentPassword: string;
   newPassword: string;
@@ -23,28 +21,24 @@ interface PasswordFormData {
 const UserProfile: React.FC = () => {
   const { currentUser, updateUser } = useAuth();
 
-  // State
   const [isLoading, setIsLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Edit form state
   const [editForm, setEditForm] = useState<EditFormData>({
     firstName: "",
     lastName: "",
     phone: "",
   });
 
-  // Password form state
   const [passwordForm, setPasswordForm] = useState<PasswordFormData>({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
 
-  // Initialize edit form when currentUser changes
   useEffect(() => {
     if (currentUser) {
       setEditForm({
@@ -55,7 +49,6 @@ const UserProfile: React.FC = () => {
     }
   }, [currentUser]);
 
-  // Clear messages after 5 seconds
   useEffect(() => {
     if (successMessage || error) {
       const timer = setTimeout(() => {
@@ -66,52 +59,42 @@ const UserProfile: React.FC = () => {
     }
   }, [successMessage, error]);
 
-  // Get user initials for avatar
-  const getInitials = (firstName: string, lastName: string): string => {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-  };
+  const getInitials = (firstName: string, lastName: string): string =>
+    `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 
-  // Format date for display
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+  const formatDate = (dateString: string): string =>
+    new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
     });
-  };
 
-  // Get role badge color
-  const getRoleBadgeColor = (role: string): string => {
+  const getRoleStyle = (role: string) => {
     switch (role) {
       case "platform_admin":
-        return "bg-purple-100 text-purple-800";
+        return { bg: "rgba(175, 82, 222, 0.12)", color: "#af52de" };
       case "cinema_admin":
-        return "bg-blue-100 text-blue-800";
+        return { bg: "rgba(0, 122, 255, 0.12)", color: "#007aff" };
       default:
-        return "bg-green-100 text-green-800";
+        return { bg: "rgba(52, 199, 89, 0.12)", color: "#34c759" };
     }
   };
 
-  // Format role for display
-  const formatRole = (role: string): string => {
-    return role.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  };
+  const formatRole = (role: string): string =>
+    role.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-  // Handle edit form input change
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
     setEditForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle password form input change
   const handlePasswordChange = (
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement>,
   ): void => {
     const { name, value } = e.target;
     setPasswordForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle profile update
   const handleProfileUpdate = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError(null);
@@ -120,7 +103,6 @@ const UserProfile: React.FC = () => {
 
     try {
       if (!currentUser) return;
-
       const response = await usersApi.update(currentUser.id, {
         firstName: editForm.firstName,
         lastName: editForm.lastName,
@@ -128,7 +110,6 @@ const UserProfile: React.FC = () => {
       });
 
       if (response.data.success) {
-        // Update auth context with new user data
         updateUser({
           ...currentUser,
           firstName: editForm.firstName,
@@ -145,13 +126,11 @@ const UserProfile: React.FC = () => {
     }
   };
 
-  // Handle password change
   const handlePasswordSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError(null);
     setSuccessMessage(null);
 
-    // Validate passwords
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setError("New passwords do not match");
       return;
@@ -166,7 +145,6 @@ const UserProfile: React.FC = () => {
 
     try {
       if (!currentUser) return;
-
       const response = await usersApi.changePassword(currentUser.id, {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
@@ -188,7 +166,6 @@ const UserProfile: React.FC = () => {
     }
   };
 
-  // Cancel edit mode
   const handleCancelEdit = (): void => {
     if (currentUser) {
       setEditForm({
@@ -201,7 +178,6 @@ const UserProfile: React.FC = () => {
     setError(null);
   };
 
-  // Cancel password change
   const handleCancelPassword = (): void => {
     setPasswordForm({
       currentPassword: "",
@@ -215,103 +191,171 @@ const UserProfile: React.FC = () => {
   if (!currentUser) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+        <div
+          className="w-8 h-8 rounded-full animate-spin"
+          style={{ border: "3px solid #e5e5e5", borderTopColor: "#007aff" }}
+        />
       </div>
     );
   }
 
+  const roleStyle = getRoleStyle(currentUser.role);
+
+  // Input field styles
+  const inputStyle = {
+    background: "#f5f5f7",
+    borderRadius: "14px",
+    border: "none",
+    fontSize: "16px",
+  };
+
   return (
-    <div className="max-w-2xl mx-auto p-4">
+    <div className="space-y-6">
       {/* Success Message */}
       {successMessage && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-green-800">{successMessage}</p>
+        <div
+          className="p-4 flex items-center gap-3 transition-all duration-300"
+          style={{
+            background: "rgba(52, 199, 89, 0.1)",
+            borderRadius: "16px",
+          }}
+        >
+          <svg
+            className="w-5 h-5"
+            style={{ color: "#34c759" }}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+          <p style={{ color: "#34c759" }} className="font-medium">
+            {successMessage}
+          </p>
         </div>
       )}
 
       {/* Error Message */}
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-800">{error}</p>
+        <div
+          className="p-4 flex items-center gap-3 transition-all duration-300"
+          style={{
+            background: "rgba(255, 59, 48, 0.1)",
+            borderRadius: "16px",
+          }}
+        >
+          <svg
+            className="w-5 h-5"
+            style={{ color: "#ff3b30" }}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+          <p style={{ color: "#ff3b30" }} className="font-medium">
+            {error}
+          </p>
         </div>
       )}
 
       {/* Profile Card */}
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+      <div
+        className="overflow-hidden transition-all duration-300"
+        style={{
+          background: "#fff",
+          borderRadius: "24px",
+          boxShadow: "0 4px 24px rgba(0, 0, 0, 0.06)",
+        }}
+      >
         {/* Header with Avatar */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-8">
-          <div className="flex items-center space-x-4">
-            {/* Avatar with Initials */}
-            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center">
-              <span className="text-2xl font-bold text-indigo-600">
-                {getInitials(currentUser.firstName, currentUser.lastName)}
-              </span>
-            </div>
-            <div className="text-white">
-              <h1 className="text-2xl font-bold">
-                {currentUser.firstName} {currentUser.lastName}
-              </h1>
-              <p className="text-indigo-200">{currentUser.email}</p>
-            </div>
+        <div className="p-8 flex items-center gap-6">
+          {/* Avatar */}
+          <div
+            className="w-20 h-20 flex items-center justify-center shrink-0"
+            style={{
+              background: "linear-gradient(135deg, #007aff 0%, #5856d6 100%)",
+              borderRadius: "24px",
+              boxShadow: "0 8px 24px rgba(0, 122, 255, 0.3)",
+            }}
+          >
+            <span className="text-2xl font-bold text-white">
+              {getInitials(currentUser.firstName, currentUser.lastName)}
+            </span>
+          </div>
+
+          {/* Name and Email */}
+          <div className="flex-1 min-w-0">
+            <h2
+              className="text-2xl font-bold text-gray-900 truncate"
+              style={{ letterSpacing: "-0.02em" }}
+            >
+              {currentUser.firstName} {currentUser.lastName}
+            </h2>
+            <p className="mt-1 text-gray-500 truncate">{currentUser.email}</p>
+            <span
+              className="inline-block mt-3 px-3 py-1.5 text-xs font-semibold"
+              style={{
+                background: roleStyle.bg,
+                color: roleStyle.color,
+                borderRadius: "10px",
+              }}
+            >
+              {formatRole(currentUser.role)}
+            </span>
           </div>
         </div>
 
+        {/* Divider */}
+        <div
+          className="mx-8"
+          style={{ height: "1px", background: "rgba(0,0,0,0.05)" }}
+        />
+
         {/* Profile Info / Edit Form */}
-        <div className="p-6">
+        <div className="p-8">
           {!isEditMode ? (
-            // Display Mode
             <>
-              <div className="space-y-4">
-                {/* Full Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                 <div>
-                  <label className="block text-sm font-medium text-gray-500">
-                    Full Name
-                  </label>
-                  <p className="mt-1 text-lg text-gray-900">
-                    {currentUser.firstName} {currentUser.lastName}
+                  <p className="text-xs text-gray-400 uppercase tracking-wide">
+                    First Name
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-gray-900">
+                    {currentUser.firstName}
                   </p>
                 </div>
-
-                {/* Email */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-500">
-                    Email
-                  </label>
-                  <p className="mt-1 text-lg text-gray-900">
-                    {currentUser.email}
+                  <p className="text-xs text-gray-400 uppercase tracking-wide">
+                    Last Name
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-gray-900">
+                    {currentUser.lastName}
                   </p>
                 </div>
-
-                {/* Phone */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-500">
+                  <p className="text-xs text-gray-400 uppercase tracking-wide">
                     Phone
-                  </label>
-                  <p className="mt-1 text-lg text-gray-900">
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-gray-900">
                     {currentUser.phone || "Not provided"}
                   </p>
                 </div>
-
-                {/* Role */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-500">
-                    Role
-                  </label>
-                  <span
-                    className={`mt-1 inline-block px-3 py-1 rounded-full text-sm font-medium ${getRoleBadgeColor(
-                      currentUser.role
-                    )}`}
-                  >
-                    {formatRole(currentUser.role)}
-                  </span>
-                </div>
-
-                {/* Member Since */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-500">
+                  <p className="text-xs text-gray-400 uppercase tracking-wide">
                     Member Since
-                  </label>
-                  <p className="mt-1 text-lg text-gray-900">
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-gray-900">
                     {currentUser.createdAt
                       ? formatDate(currentUser.createdAt)
                       : "N/A"}
@@ -320,67 +364,72 @@ const UserProfile: React.FC = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="mt-6 flex space-x-4">
+              <div className="mt-10 flex flex-wrap gap-4">
                 <button
                   onClick={() => setIsEditMode(true)}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  className="px-6 py-3 font-semibold text-white transition-all duration-200"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #007aff 0%, #0055b3 100%)",
+                    borderRadius: "14px",
+                  }}
                 >
                   Edit Profile
                 </button>
                 <button
                   onClick={() => setIsChangingPassword(true)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  className="px-6 py-3 font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-100"
+                  style={{ borderRadius: "14px" }}
                 >
                   Change Password
                 </button>
               </div>
             </>
           ) : (
-            // Edit Mode
-            <form onSubmit={handleProfileUpdate} className="space-y-4">
-              {/* First Name */}
-              <div>
-                <label
-                  htmlFor="firstName"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  First Name
-                </label>
-                <input
-                  type="text"
-                  id="firstName"
-                  name="firstName"
-                  value={editForm.firstName}
-                  onChange={handleEditChange}
-                  required
-                  className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
+            <form onSubmit={handleProfileUpdate} className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                  <label
+                    htmlFor="firstName"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    id="firstName"
+                    name="firstName"
+                    value={editForm.firstName}
+                    onChange={handleEditChange}
+                    required
+                    className="block w-full px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="lastName"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    id="lastName"
+                    name="lastName"
+                    value={editForm.lastName}
+                    onChange={handleEditChange}
+                    required
+                    className="block w-full px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                    style={inputStyle}
+                  />
+                </div>
               </div>
 
-              {/* Last Name */}
-              <div>
-                <label
-                  htmlFor="lastName"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  id="lastName"
-                  name="lastName"
-                  value={editForm.lastName}
-                  onChange={handleEditChange}
-                  required
-                  className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-
-              {/* Phone */}
               <div>
                 <label
                   htmlFor="phone"
-                  className="block text-sm font-medium text-gray-700"
+                  className="block text-sm font-medium text-gray-700 mb-2"
                 >
                   Phone (Optional)
                 </label>
@@ -390,16 +439,21 @@ const UserProfile: React.FC = () => {
                   name="phone"
                   value={editForm.phone}
                   onChange={handleEditChange}
-                  className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="block w-full px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                  style={inputStyle}
                 />
               </div>
 
-              {/* Submit Buttons */}
-              <div className="flex space-x-4 pt-4">
+              <div className="flex flex-wrap gap-4 pt-4">
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-6 py-3 font-semibold text-white transition-all duration-200 disabled:opacity-50"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #34c759 0%, #30a14e 100%)",
+                    borderRadius: "14px",
+                  }}
                 >
                   {isLoading ? "Saving..." : "Save Changes"}
                 </button>
@@ -407,7 +461,8 @@ const UserProfile: React.FC = () => {
                   type="button"
                   onClick={handleCancelEdit}
                   disabled={isLoading}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors"
+                  className="px-6 py-3 font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-100 disabled:opacity-50"
+                  style={{ borderRadius: "14px" }}
                 >
                   Cancel
                 </button>
@@ -419,89 +474,107 @@ const UserProfile: React.FC = () => {
 
       {/* Change Password Section */}
       {isChangingPassword && (
-        <div className="mt-6 bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
-            Change Password
-          </h2>
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
-            {/* Current Password */}
-            <div>
-              <label
-                htmlFor="currentPassword"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Current Password
-              </label>
-              <input
-                type="password"
-                id="currentPassword"
-                name="currentPassword"
-                value={passwordForm.currentPassword}
-                onChange={handlePasswordChange}
-                required
-                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
+        <div
+          className="overflow-hidden transition-all duration-300"
+          style={{
+            background: "#fff",
+            borderRadius: "24px",
+            boxShadow: "0 4px 24px rgba(0, 0, 0, 0.06)",
+          }}
+        >
+          <div className="p-8">
+            <h3
+              className="text-xl font-bold text-gray-900 mb-6"
+              style={{ letterSpacing: "-0.01em" }}
+            >
+              Change Password
+            </h3>
 
-            {/* New Password */}
-            <div>
-              <label
-                htmlFor="newPassword"
-                className="block text-sm font-medium text-gray-700"
-              >
-                New Password
-              </label>
-              <input
-                type="password"
-                id="newPassword"
-                name="newPassword"
-                value={passwordForm.newPassword}
-                onChange={handlePasswordChange}
-                required
-                minLength={6}
-                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
+            <form onSubmit={handlePasswordSubmit} className="space-y-6">
+              <div>
+                <label
+                  htmlFor="currentPassword"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Current Password
+                </label>
+                <input
+                  type="password"
+                  id="currentPassword"
+                  name="currentPassword"
+                  value={passwordForm.currentPassword}
+                  onChange={handlePasswordChange}
+                  required
+                  className="block w-full px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                  style={inputStyle}
+                />
+              </div>
 
-            {/* Confirm Password */}
-            <div>
-              <label
-                htmlFor="confirmPassword"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Confirm New Password
-              </label>
-              <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                value={passwordForm.confirmPassword}
-                onChange={handlePasswordChange}
-                required
-                minLength={6}
-                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
+              <div>
+                <label
+                  htmlFor="newPassword"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  id="newPassword"
+                  name="newPassword"
+                  value={passwordForm.newPassword}
+                  onChange={handlePasswordChange}
+                  required
+                  minLength={6}
+                  className="block w-full px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                  style={inputStyle}
+                />
+              </div>
 
-            {/* Submit Buttons */}
-            <div className="flex space-x-4 pt-4">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isLoading ? "Updating..." : "Update Password"}
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelPassword}
-                disabled={isLoading}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+              <div>
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  value={passwordForm.confirmPassword}
+                  onChange={handlePasswordChange}
+                  required
+                  minLength={6}
+                  className="block w-full px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                  style={inputStyle}
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-4 pt-4">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="px-6 py-3 font-semibold text-white transition-all duration-200 disabled:opacity-50"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #007aff 0%, #0055b3 100%)",
+                    borderRadius: "14px",
+                  }}
+                >
+                  {isLoading ? "Updating..." : "Update Password"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelPassword}
+                  disabled={isLoading}
+                  className="px-6 py-3 font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-100 disabled:opacity-50"
+                  style={{ borderRadius: "14px" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
