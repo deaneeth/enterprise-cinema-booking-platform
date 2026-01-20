@@ -52,7 +52,7 @@ api.interceptors.request.use(
   (error: AxiosError): Promise<never> => {
     console.error("Request error:", error);
     return Promise.reject(error);
-  }
+  },
 );
 
 /**
@@ -101,7 +101,7 @@ api.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 /**
@@ -141,7 +141,7 @@ export const authApi = {
   }) =>
     api.post<ApiResponse<{ user: any; token: string }>>(
       "/api/auth/register",
-      data
+      data,
     ),
 
   getMe: () => api.get<ApiResponse<{ user: any }>>("/api/auth/me"),
@@ -164,12 +164,12 @@ export const usersApi = {
 
   update: (
     id: string,
-    data: { firstName?: string; lastName?: string; phone?: string }
+    data: { firstName?: string; lastName?: string; phone?: string },
   ) => api.put<ApiResponse>(`/api/users/${id}`, data),
 
   changePassword: (
     id: string,
-    data: { currentPassword: string; newPassword: string }
+    data: { currentPassword: string; newPassword: string },
   ) => api.put<ApiResponse>(`/api/users/${id}/change-password`, data),
 
   deactivate: (id: string) => api.delete<ApiResponse>(`/api/users/${id}`),
@@ -182,6 +182,10 @@ export const bookingsApi = {
   // Create a new booking
   create: (data: { showtimeId: string; seatIds: string[] }) =>
     api.post<ApiResponse>("/api/bookings", data),
+
+  // Update booking seats without extending hold
+  updateSeats: (bookingId: string, seatIds: string[]) =>
+    api.put<ApiResponse>(`/api/bookings/${bookingId}/seats`, { seatIds }),
 
   // Confirm a booking after payment
   confirm: (bookingId: string, paymentId?: string) =>
@@ -227,8 +231,8 @@ export interface Payment {
   userId: string | User;
   amount: number;
   currency: string;
-  paymentMethod: 'paypal' | 'card';
-  paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled';
+  paymentMethod: "paypal" | "card";
+  paymentStatus: "pending" | "completed" | "failed" | "refunded" | "cancelled";
   paypalOrderId?: string;
   paypalCaptureId?: string;
   paypalRefundId?: string;
@@ -254,7 +258,7 @@ export interface Booking {
   seatIds: string[];
   numberOfSeats: number;
   totalAmount: number;
-  bookingStatus: 'pending' | 'confirmed' | 'cancelled';
+  bookingStatus: "pending" | "confirmed" | "cancelled";
   bookingDate: string;
   paymentId?: string;
   qrCode?: string;
@@ -271,7 +275,7 @@ export interface User {
   firstName: string;
   lastName: string;
   phone?: string;
-  role: 'user' | 'cinema_admin' | 'platform_admin';
+  role: "user" | "cinema_admin" | "platform_admin";
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -331,8 +335,8 @@ export const paymentsApi = {
    */
   createOrder: (bookingId: string) =>
     api.post<ApiResponse<{ orderId: string; approvalUrl: string }>>(
-      '/api/payments/create-order',
-      { bookingId }
+      "/api/payments/create-order",
+      { bookingId },
     ),
 
   /**
@@ -341,27 +345,25 @@ export const paymentsApi = {
    * @returns Payment and booking details
    */
   capturePayment: (orderId: string) =>
-    api.post<ApiResponse<{ success: boolean; payment: Payment; booking: Booking }>>(
-      '/api/payments/capture',
-      { orderId }
-    ),
+    api.post<
+      ApiResponse<{ success: boolean; payment: Payment; booking: Booking }>
+    >("/api/payments/capture", { orderId }),
 
   /**
    * Cancel a pending payment (user cancelled in PayPal)
    * @param orderId - PayPal order ID to cancel
    */
   cancelPayment: (orderId: string) =>
-    api.post<ApiResponse<{ message: string }>>(
-      '/api/payments/cancel',
-      { orderId }
-    ),
+    api.post<ApiResponse<{ message: string }>>("/api/payments/cancel", {
+      orderId,
+    }),
 
   /**
    * Get current user's payment history
    * @returns Array of payments with populated booking details
    */
   getMyPayments: () =>
-    api.get<ApiResponse<Payment[]>>('/api/payments/my-payments'),
+    api.get<ApiResponse<Payment[]>>("/api/payments/my-payments"),
 
   /**
    * Get a specific payment by ID
@@ -377,9 +379,9 @@ export const paymentsApi = {
    * @returns Refund confirmation details
    */
   processRefund: (paymentId: string) =>
-    api.post<ApiResponse<{ payment: Payment; refundId: string; refundAmount: string }>>(
-      `/api/payments/${paymentId}/refund`
-    ),
+    api.post<
+      ApiResponse<{ payment: Payment; refundId: string; refundAmount: string }>
+    >(`/api/payments/${paymentId}/refund`),
 
   /**
    * Get all payments (Admin only)
@@ -394,10 +396,17 @@ export const paymentsApi = {
     page?: number;
     limit?: number;
   }) =>
-    api.get<ApiResponse<{ payments: Payment[]; pagination: { page: number; limit: number; total: number; pages: number } }>>(
-      '/api/payments',
-      { params }
-    ),
+    api.get<
+      ApiResponse<{
+        payments: Payment[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          pages: number;
+        };
+      }>
+    >("/api/payments", { params }),
 };
 
 export default api;
