@@ -1,6 +1,6 @@
 // Profile.tsx (Member 1)
-// Profile page - Main profile page with tabs for different sections
-// Uses UserProfile component and placeholders for Member 5's components
+// Profile page - Redesigned with Apple Human Interface Guidelines
+// Premium UI with soft shadows, generous whitespace, and smooth animations
 
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -8,10 +8,8 @@ import UserProfile from "../components/profile/UserProfile";
 import BookingHistory from "../components/profile/BookingHistory";
 import PaymentHistory from "../components/profile/PaymentHistory";
 
-// Tab type
 type TabType = "profile" | "bookings" | "payments";
 
-// Tab interface
 interface Tab {
   id: TabType;
   label: string;
@@ -25,17 +23,16 @@ const Profile: React.FC = () => {
     tabParam === "bookings" || tabParam === "payments" ? tabParam : "profile";
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
-  // Update tab when URL parameter changes
   useEffect(() => {
     if (tabParam === "bookings" || tabParam === "payments") {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
-  // Tab definitions
+
   const tabs: Tab[] = [
     {
       id: "profile",
-      label: "Profile Info",
+      label: "Profile",
       icon: (
         <svg
           className="w-5 h-5"
@@ -46,7 +43,7 @@ const Profile: React.FC = () => {
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeWidth={2}
+            strokeWidth={1.5}
             d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
           />
         </svg>
@@ -54,7 +51,7 @@ const Profile: React.FC = () => {
     },
     {
       id: "bookings",
-      label: "My Bookings",
+      label: "Bookings",
       icon: (
         <svg
           className="w-5 h-5"
@@ -65,7 +62,7 @@ const Profile: React.FC = () => {
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeWidth={2}
+            strokeWidth={1.5}
             d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
           />
         </svg>
@@ -73,7 +70,7 @@ const Profile: React.FC = () => {
     },
     {
       id: "payments",
-      label: "Payment History",
+      label: "Payments",
       icon: (
         <svg
           className="w-5 h-5"
@@ -84,7 +81,7 @@ const Profile: React.FC = () => {
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeWidth={2}
+            strokeWidth={1.5}
             d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
           />
         </svg>
@@ -92,59 +89,73 @@ const Profile: React.FC = () => {
     },
   ];
 
-  // Render tab content based on active tab
   const renderTabContent = (): React.ReactNode => {
     switch (activeTab) {
       case "profile":
         return <UserProfile />;
       case "bookings":
-        // BookingHistory component (Member 5)
-        return (
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <BookingHistory />
-          </div>
-        );
+        return <BookingHistory />;
       case "payments":
-        return (
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <PaymentHistory />
-          </div>
-        );
+        return <PaymentHistory />;
       default:
         return null;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Page Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold text-white">My Account</h1>
-          <p className="mt-2 text-indigo-200">
-            Manage your profile, bookings, and payment history
+    <div
+      className="min-h-screen"
+      style={{
+        background: "linear-gradient(180deg, #f5f5f7 0%, #ffffff 100%)",
+        fontFamily:
+          "system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+      }}
+    >
+      {/* Header */}
+      <div className="pt-12 pb-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto">
+          <h1
+            className="text-4xl font-bold text-gray-900 tracking-tight"
+            style={{ letterSpacing: "-0.025em" }}
+          >
+            Account
+          </h1>
+          <p className="mt-2 text-lg text-gray-500" style={{ lineHeight: 1.6 }}>
+            Manage your profile and preferences
           </p>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tabs Navigation */}
-        <div className="bg-white rounded-lg shadow-sm mb-6">
-          <nav className="flex space-x-1 p-1" aria-label="Tabs">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        {/* Apple-style Segmented Control */}
+        <div
+          className="p-1.5 rounded-2xl mb-10"
+          style={{
+            background: "rgba(0, 0, 0, 0.04)",
+          }}
+        >
+          <nav className="flex gap-1" aria-label="Tabs">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-lg
-                  font-medium text-sm transition-all duration-200
+                  flex-1 flex items-center justify-center gap-2.5 px-6 py-3.5
+                  rounded-xl font-semibold text-sm
+                  transition-all duration-300 ease-out
                   ${
                     activeTab === tab.id
-                      ? "bg-indigo-600 text-white shadow-md"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                      ? "bg-white text-gray-900 shadow-lg"
+                      : "text-gray-500 hover:text-gray-700"
                   }
                 `}
+                style={{
+                  boxShadow:
+                    activeTab === tab.id
+                      ? "0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)"
+                      : "none",
+                }}
               >
                 {tab.icon}
                 <span>{tab.label}</span>
@@ -153,8 +164,13 @@ const Profile: React.FC = () => {
           </nav>
         </div>
 
-        {/* Tab Content */}
-        <div className="transition-all duration-300">{renderTabContent()}</div>
+        {/* Tab Content with Animation */}
+        <div
+          className="transition-all duration-500 ease-out"
+          style={{ minHeight: "400px" }}
+        >
+          {renderTabContent()}
+        </div>
       </div>
     </div>
   );
