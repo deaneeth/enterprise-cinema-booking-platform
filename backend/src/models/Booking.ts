@@ -14,7 +14,7 @@ export interface BookingDocument extends Document {
   seatIds: mongoose.Types.ObjectId[];
   numberOfSeats: number;
   totalAmount: number;
-  bookingStatus: 'pending' | 'confirmed' | 'cancelled';
+  bookingStatus: 'pending' | 'confirmed' | 'cancelled' | 'expired';
   bookingDate: Date;
   paymentId?: mongoose.Types.ObjectId;
   qrCode?: string;
@@ -63,8 +63,9 @@ const BookingSchema = new Schema<BookingDocument>(
     bookingStatus: {
       type: String,
       enum: {
-        values: ['pending', 'confirmed', 'cancelled'],
-        message: 'Booking status must be pending, confirmed, or cancelled',
+        values: ['pending', 'confirmed', 'cancelled', 'expired'],
+        message:
+          'Booking status must be pending, confirmed, cancelled, or expired',
       },
       default: 'pending',
     },
@@ -153,8 +154,8 @@ BookingSchema.methods.generateQRCode = function (): string {
  * @returns Promise<boolean> - true if booking can be cancelled
  */
 BookingSchema.methods.canCancel = async function (): Promise<boolean> {
-  // Cannot cancel an already cancelled booking
-  if (this.bookingStatus === 'cancelled') {
+  // Cannot cancel an already cancelled or expired booking
+  if (this.bookingStatus === 'cancelled' || this.bookingStatus === 'expired') {
     return false;
   }
 

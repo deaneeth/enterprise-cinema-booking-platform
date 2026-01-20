@@ -152,8 +152,27 @@ export const createBooking = async (req: Request, res: Response) => {
         });
       }
 
+      // Check for truly unavailable seats (booked, or held by ANOTHER user AND not expired)
+      const now = new Date();
       const unavailableSeats = seats.filter(
-        (seat: { status: string }) => seat.status !== 'available'
+        (seat: {
+          status: string;
+          heldUntil?: Date;
+          heldBy?: { toString: () => string } | string;
+        }) => {
+          // 'booked' seats are always unavailable
+          if (seat.status === 'booked') return true;
+          // 'held' seats are unavailable only if held by another user and not expired
+          if (seat.status === 'held') {
+            const seatHeldBy = seat.heldBy?.toString();
+            // If held by the same user trying to book, it's available for them
+            if (seatHeldBy === userId) return false;
+            // If held by another user and not expired, it's unavailable
+            return seat.heldUntil && new Date(seat.heldUntil) > now;
+          }
+          // 'available' seats are available
+          return false;
+        }
       );
       if (unavailableSeats.length > 0) {
         return res.status(400).json({
@@ -162,19 +181,48 @@ export const createBooking = async (req: Request, res: Response) => {
         });
       }
 
+      // Release any expired holds before updating to 'held'
+      await Seat.updateMany(
+        {
+          _id: { $in: seatIds },
+          status: 'held',
+          heldUntil: { $lt: now },
+        },
+        {
+          $set: {
+            status: 'available',
+            heldBy: null,
+            heldUntil: null,
+          },
+        }
+      );
+
       // Update seats to 'held' status
       await Seat.updateMany(
         { _id: { $in: seatIds } },
         {
-          status: 'held',
-          heldBy: userId,
-          heldUntil: new Date(Date.now() + SEAT_HOLD_DURATION_MS),
+          $set: {
+            status: 'held',
+            heldBy: userId,
+            heldUntil: new Date(Date.now() + SEAT_HOLD_DURATION_MS),
+          },
         }
       );
     }
 
-    // Calculate total amount
-    const totalAmount = showtime.price * seatIds.length;
+    // Calculate total amount from actual seat prices
+    let totalAmount = 0;
+    if (Seat) {
+      const seatDocs = await Seat.find({ _id: { $in: seatIds } });
+      totalAmount = seatDocs.reduce(
+        (sum: number, seat: { price?: number }) =>
+          sum + (seat.price || showtime.price),
+        0
+      );
+    } else {
+      // Fallback to showtime price if Seat model not available
+      totalAmount = showtime.price * seatIds.length;
+    }
 
     // Create booking
     const booking = await Booking.create({
@@ -305,10 +353,12 @@ export const confirmBooking = async (req: Request, res: Response) => {
       await Seat.updateMany(
         { _id: { $in: booking.seatIds } },
         {
-          status: 'booked',
-          bookingId: booking._id,
-          heldBy: null,
-          heldUntil: null,
+          $set: {
+            status: 'booked',
+            bookingId: booking._id,
+            heldBy: null,
+            heldUntil: null,
+          },
         }
       );
     }
@@ -408,8 +458,8 @@ export const getBookingById = async (req: Request, res: Response) => {
 
     const booking = await Booking.findById(id)
       .populate('userId', 'firstName lastName email phone')
-      // Note: seatIds are stored as ObjectId array, no Seat model needed for basic functionality
-      // Note: paymentId population skipped - Payment model is a placeholder
+      .populate('seatIds', 'seatNumber row column seatType price status')
+      .populate('paymentId')
       .populate({
         path: 'showtimeId',
         populate: [
@@ -608,10 +658,12 @@ export const cancelBooking = async (req: Request, res: Response) => {
       await Seat.updateMany(
         { _id: { $in: booking.seatIds } },
         {
-          status: 'available',
-          heldBy: null,
-          heldUntil: null,
-          bookingId: null,
+          $set: {
+            status: 'available',
+            heldBy: null,
+            heldUntil: null,
+            bookingId: null,
+          },
         }
       );
     }
