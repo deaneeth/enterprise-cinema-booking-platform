@@ -137,6 +137,8 @@ const BookingCard: React.FC<BookingCardProps> = ({
         return "bg-yellow-100 text-yellow-800";
       case "cancelled":
         return "bg-red-100 text-red-800";
+      case "expired":
+        return "bg-gray-100 text-gray-600";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -253,10 +255,10 @@ const BookingCard: React.FC<BookingCardProps> = ({
           </div>
 
           {/* QR Code Display */}
-          {showQR && booking.qrCode && (
+          {showQR && (
             <div className="mt-4 flex flex-col items-center rounded-lg bg-gray-50 p-4">
               <img
-                src={booking.qrCode}
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(booking.qrCode || booking.id)}`}
                 alt="Booking QR Code"
                 className="h-40 w-40"
               />
@@ -286,7 +288,7 @@ const BookingHistory: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "past" | "cancelled">(
-    "upcoming"
+    "upcoming",
   );
 
   // Cancel modal state
@@ -324,7 +326,10 @@ const BookingHistory: React.FC = () => {
         ? new Date(booking.showtime.startTime)
         : null;
 
-      if (booking.bookingStatus === "cancelled") {
+      if (
+        booking.bookingStatus === "cancelled" ||
+        booking.bookingStatus === "expired"
+      ) {
         groups.cancelled.push(booking);
       } else if (showtimeStart && showtimeStart < now) {
         groups.past.push(booking);
@@ -334,7 +339,7 @@ const BookingHistory: React.FC = () => {
 
       return groups;
     },
-    { upcoming: [], past: [], cancelled: [] } as GroupedBookings
+    { upcoming: [], past: [], cancelled: [] } as GroupedBookings,
   );
 
   /**
@@ -376,8 +381,8 @@ const BookingHistory: React.FC = () => {
         prev.map((b) =>
           b.id === bookingToCancel.id
             ? { ...b, bookingStatus: "cancelled" as const }
-            : b
-        )
+            : b,
+        ),
       );
 
       setCancelModalOpen(false);
