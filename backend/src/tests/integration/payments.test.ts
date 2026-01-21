@@ -697,11 +697,14 @@ describe('Payment API', () => {
     it('should return current user payments', async () => {
       const cinema = await Cinema.create({ name: 'Test Cinema' });
       const { user, token } = await createUserWithToken();
-      const { showtime } = await createTestShowtime(cinema._id);
+
+      // Create separate showtimes to avoid unique pending booking constraint
+      const { showtime: showtime1 } = await createTestShowtime(cinema._id);
+      const { showtime: showtime2 } = await createTestShowtime(cinema._id);
 
       // Create multiple bookings and payments
-      const booking1 = await createTestBooking(user._id, showtime._id);
-      const booking2 = await createTestBooking(user._id, showtime._id);
+      const booking1 = await createTestBooking(user._id, showtime1._id);
+      const booking2 = await createTestBooking(user._id, showtime2._id);
 
       await createTestPayment(booking1._id, user._id, {
         status: 'completed',
@@ -755,11 +758,15 @@ describe('Payment API', () => {
     it('should return payments sorted by date descending', async () => {
       const cinema = await Cinema.create({ name: 'Test Cinema' });
       const { user, token } = await createUserWithToken();
-      const { showtime } = await createTestShowtime(cinema._id);
 
-      const booking1 = await createTestBooking(user._id, showtime._id);
-      const booking2 = await createTestBooking(user._id, showtime._id);
-      const booking3 = await createTestBooking(user._id, showtime._id);
+      // Create separate showtimes to avoid unique pending booking constraint
+      const { showtime: showtime1 } = await createTestShowtime(cinema._id);
+      const { showtime: showtime2 } = await createTestShowtime(cinema._id);
+      const { showtime: showtime3 } = await createTestShowtime(cinema._id);
+
+      const booking1 = await createTestBooking(user._id, showtime1._id);
+      const booking2 = await createTestBooking(user._id, showtime2._id);
+      const booking3 = await createTestBooking(user._id, showtime3._id);
 
       // Create payments with slight delay to ensure different timestamps
       await createTestPayment(booking1._id, user._id, {
@@ -905,10 +912,13 @@ describe('Payment API', () => {
       const { token: adminToken } = await createUserWithToken({
         role: 'platform_admin',
       });
-      const { showtime } = await createTestShowtime(cinema._id);
 
-      const booking1 = await createTestBooking(user._id, showtime._id);
-      const booking2 = await createTestBooking(user._id, showtime._id);
+      // Create separate showtimes to avoid unique pending booking constraint
+      const { showtime: showtime1 } = await createTestShowtime(cinema._id);
+      const { showtime: showtime2 } = await createTestShowtime(cinema._id);
+
+      const booking1 = await createTestBooking(user._id, showtime1._id);
+      const booking2 = await createTestBooking(user._id, showtime2._id);
 
       await createTestPayment(booking1._id, user._id, {
         status: 'completed',
@@ -936,10 +946,10 @@ describe('Payment API', () => {
       const { token: adminToken } = await createUserWithToken({
         role: 'platform_admin',
       });
-      const { showtime } = await createTestShowtime(cinema._id);
 
-      // Create 5 payments
+      // Create 5 payments with separate showtimes to avoid unique constraint
       for (let i = 0; i < 5; i++) {
+        const { showtime } = await createTestShowtime(cinema._id);
         const booking = await createTestBooking(user._id, showtime._id);
         await createTestPayment(booking._id, user._id, {
           paypalOrderId: `ORDER-PAGE-${i}`,

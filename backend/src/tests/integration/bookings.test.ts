@@ -597,21 +597,30 @@ describe('Booking Integration', () => {
         cinemaId: cinema._id,
       });
       const { token } = await createUserWithToken();
-      const { showtime } = await createTestShowtime(adminToken, cinema._id);
 
-      // Create multiple bookings
-      const seatIds1 = await createTestSeats(showtime._id, 1, showtime.price);
+      // Create two separate showtimes to avoid unique pending booking constraint
+      const { showtime: showtime1 } = await createTestShowtime(
+        adminToken,
+        cinema._id
+      );
+      const { showtime: showtime2 } = await createTestShowtime(
+        adminToken,
+        cinema._id
+      );
+
+      // Create bookings for different showtimes
+      const seatIds1 = await createTestSeats(showtime1._id, 1, showtime1.price);
       await request(app)
         .post('/api/bookings')
         .set('Authorization', `Bearer ${token}`)
-        .send({ showtimeId: showtime._id, seatIds: seatIds1 })
+        .send({ showtimeId: showtime1._id, seatIds: seatIds1 })
         .expect(201);
 
-      const seatIds2 = await createTestSeats(showtime._id, 1, showtime.price);
+      const seatIds2 = await createTestSeats(showtime2._id, 1, showtime2.price);
       await request(app)
         .post('/api/bookings')
         .set('Authorization', `Bearer ${token}`)
-        .send({ showtimeId: showtime._id, seatIds: seatIds2 })
+        .send({ showtimeId: showtime2._id, seatIds: seatIds2 })
         .expect(201);
 
       // Get user bookings
