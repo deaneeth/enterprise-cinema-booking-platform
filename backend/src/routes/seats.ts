@@ -116,4 +116,18 @@ router.delete(
   }
 );
 
+/**
+ * POST /api/seats/sync/:showtimeId
+ * Sync seats from confirmed bookings (repair missing booked status)
+ * Admin only (platform_admin or cinema_admin)
+ */
+router.post(
+  '/sync/:showtimeId',
+  authenticate,
+  requireRole('platform_admin', 'cinema_admin'),
+  (req: Request, res: Response) => {
+    SeatController.syncSeatsFromBookings(req, res);
+  }
+);
+
 export default router;

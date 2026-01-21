@@ -2,7 +2,9 @@
 // Seat controller - Contains business logic for seat-related operations
 // Handles seat availability checking, seat selection, and seat status management
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import SeatModel, { SeatDocument } from '../models/Seat';
+import Booking from '../models/Booking';
 import ShowtimeModel from '../models/Showtime';
 import websocketService from '../services/websocket';
 
@@ -410,6 +412,7 @@ export class SeatController {
     try {
       const seatId = req.params.id;
       const userId = (req as any).user?.id;
+      const { bookingId } = req.body as { bookingId?: string };
 
       if (!userId) {
         res.status(401).json({
@@ -427,6 +430,54 @@ export class SeatController {
         return;
       }
 
+      let bookingExpiresAt: Date | null = null;
+      let bookingShowtimeId: string | null = null;
+      if (bookingId) {
+        if (!mongoose.isValidObjectId(bookingId)) {
+          res.status(400).json({
+            success: false,
+            error: { message: 'Invalid booking ID' },
+          });
+          return;
+        }
+
+        const booking = await Booking.findById(bookingId);
+        if (!booking) {
+          res.status(404).json({
+            success: false,
+            error: { message: 'Booking not found' },
+          });
+          return;
+        }
+
+        if (booking.userId.toString() !== userId) {
+          res.status(403).json({
+            success: false,
+            error: { message: 'Not authorized to use this booking' },
+          });
+          return;
+        }
+
+        if (booking.bookingStatus !== 'pending') {
+          res.status(400).json({
+            success: false,
+            error: { message: 'Only pending bookings can hold seats' },
+          });
+          return;
+        }
+
+        if (booking.expiresAt && booking.expiresAt.getTime() <= Date.now()) {
+          res.status(400).json({
+            success: false,
+            error: { message: 'Booking hold has expired' },
+          });
+          return;
+        }
+
+        bookingExpiresAt = booking.expiresAt ?? null;
+        bookingShowtimeId = booking.showtimeId.toString();
+      }
+
       const seat = await SeatModel.findById(seatId);
       if (!seat) {
         res.status(404).json({
@@ -436,42 +487,101 @@ export class SeatController {
         return;
       }
 
-      // Check if seat is available
-      if (!seat.isAvailable()) {
+      if (
+        bookingShowtimeId &&
+        seat.showtimeId.toString() !== bookingShowtimeId
+      ) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Seat does not belong to this booking showtime' },
+        });
+        return;
+      }
+
+      // ATOMIC seat hold operation to prevent race conditions
+      // Use findOneAndUpdate with conditions to ensure atomicity
+      const now = new Date();
+
+      // Determine holdUntil:
+      // 1. If booking exists, use booking's expiresAt
+      // 2. If client provides heldUntil (from first seat), validate and use it
+      // 3. Otherwise, create new 10-minute timer (first seat selection)
+      let holdUntil: Date;
+
+      if (bookingExpiresAt) {
+        holdUntil = bookingExpiresAt;
+      } else if (req.body.heldUntil) {
+        // Client passed first seat's timer - validate it
+        const clientHeldUntil = new Date(req.body.heldUntil);
+        const maxValidTime = new Date(Date.now() + 10 * 60 * 1000); // Max 10 minutes from now
+
+        if (clientHeldUntil > now && clientHeldUntil <= maxValidTime) {
+          // Valid: in the future and not more than 10 minutes from now
+          holdUntil = clientHeldUntil;
+          console.log(
+            `[SeatHold] Using client-provided timer: ${holdUntil.toISOString()}`
+          );
+        } else {
+          // Invalid or expired - create new timer
+          holdUntil = new Date(Date.now() + 10 * 60 * 1000);
+          console.log(
+            `[SeatHold] Client timer invalid, starting new 10-minute timer: ${holdUntil.toISOString()}`
+          );
+        }
+      } else {
+        // First seat - create new 10-minute timer
+        holdUntil = new Date(Date.now() + 10 * 60 * 1000);
+        console.log(
+          `[SeatHold] First seat, starting new 10-minute timer: ${holdUntil.toISOString()}`
+        );
+      }
+
+      const updatedSeat = await SeatModel.findOneAndUpdate(
+        {
+          _id: seatId,
+          $or: [
+            { status: 'available' },
+            // Allow re-hold if held by same user
+            { status: 'held', heldBy: userId },
+            // Allow hold if previous hold expired
+            { status: 'held', heldUntil: { $lt: now } },
+          ],
+        },
+        {
+          $set: {
+            status: 'held',
+            heldBy: userId,
+            heldUntil: holdUntil,
+          },
+        },
+        { new: true }
+      );
+
+      if (!updatedSeat) {
+        // Seat was not available - someone else got it first
         res.status(400).json({
           success: false,
           error: {
-            message: `Seat is ${seat.status} and cannot be held`,
+            message: 'Seat is no longer available',
           },
         });
         return;
       }
 
-      // Set hold
-      seat.status = 'held';
-      seat.heldBy = userId;
-      seat.heldUntil = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
-
-      await seat.save();
-
       // Emit WebSocket event to notify other clients
-      websocketService?.broadcastSeatUpdate(seat.showtimeId.toString(), {
-        seatId: seat._id.toString(),
+      websocketService?.broadcastSeatUpdate(updatedSeat.showtimeId.toString(), {
+        seatId: updatedSeat._id.toString(),
         status: 'held',
         heldBy: userId,
+        heldUntil: holdUntil.toISOString(),
       });
 
-      // Schedule auto-release after 10 minutes
-      setTimeout(
-        () => {
-          SeatController.autoReleaseSeat(seatId);
-        },
-        10 * 60 * 1000
-      );
+      // NOTE: Auto-release is handled by seatCleanup service (runs every 30s)
+      // Do NOT use setTimeout - it's unreliable if server restarts
 
       res.status(200).json({
         success: true,
-        data: seat,
+        data: updatedSeat,
       });
     } catch (error) {
       console.error('Error holding seat:', error);
@@ -700,6 +810,72 @@ export class SeatController {
       console.log(`Auto-released expired seat hold: ${seatId}`);
     } catch (error) {
       console.error('Error auto-releasing seat:', error);
+    }
+  }
+
+  static async syncSeatsFromBookings(
+    req: Request,
+    res: Response
+  ): Promise<void> {
+    try {
+      const { showtimeId } = req.params;
+      if (!showtimeId) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Showtime ID is required' },
+        });
+        return;
+      }
+
+      const confirmedBookings = await Booking.find({
+        showtimeId,
+        bookingStatus: 'confirmed',
+      });
+
+      const seatIdsToBook: string[] = [];
+      for (const booking of confirmedBookings) {
+        if (booking.seatIds) {
+          seatIdsToBook.push(...booking.seatIds.map((id) => id.toString()));
+        }
+      }
+
+      if (seatIdsToBook.length === 0) {
+        res.status(200).json({
+          success: true,
+          data: { synced: 0, message: 'No confirmed bookings found' },
+        });
+        return;
+      }
+
+      const result = await SeatModel.updateMany(
+        {
+          _id: { $in: seatIdsToBook },
+          status: { $ne: 'booked' },
+        },
+        {
+          $set: {
+            status: 'booked',
+            heldBy: null,
+            heldUntil: null,
+          },
+        }
+      );
+
+      websocketService?.broadcastSeatsRefresh(showtimeId);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          synced: result.modifiedCount,
+          total: seatIdsToBook.length,
+        },
+      });
+    } catch (error) {
+      console.error('Error syncing seats:', error);
+      res.status(500).json({
+        success: false,
+        error: { message: 'Failed to sync seats' },
+      });
     }
   }
 }

@@ -7,6 +7,7 @@ import {
   createBooking,
   confirmBooking,
   getBookingById,
+  updateBookingSeats,
   getUserBookings,
   cancelBooking,
   getAllBookings,
@@ -44,6 +45,15 @@ router.post('/bookings/:id/confirm', authenticate, confirmBooking);
  * @returns Booking with all populated relations
  */
 router.get('/bookings/:id', authenticate, getBookingById);
+
+/**
+ * @route   PUT /api/bookings/:id/seats
+ * @desc    Update booking seats without extending hold (pending only)
+ * @access  Private (Booking owner or Admin)
+ * @body    { seatIds: string[] }
+ * @returns Updated booking
+ */
+router.put('/bookings/:id/seats', authenticate, updateBookingSeats);
 
 /**
  * @route   GET /api/users/me/bookings

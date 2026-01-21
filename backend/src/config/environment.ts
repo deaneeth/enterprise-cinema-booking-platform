@@ -15,6 +15,10 @@ export interface Environment {
   JWT_SECRET: string;
   JWT_EXPIRE: string;
   FRONTEND_URL: string;
+  // PayPal Configuration (Member 7)
+  PAYPAL_CLIENT_ID: string;
+  PAYPAL_CLIENT_SECRET: string;
+  PAYPAL_MODE: 'sandbox' | 'live';
 }
 
 /**
@@ -51,6 +55,11 @@ export const env: Environment = {
 
   JWT_EXPIRE: getOptionalEnv('JWT_EXPIRE', '24h'),
   FRONTEND_URL: getOptionalEnv('FRONTEND_URL', 'http://localhost:3000'),
+
+  // PayPal Configuration (Member 7)
+  PAYPAL_CLIENT_ID: getRequiredEnv('PAYPAL_CLIENT_ID'),
+  PAYPAL_CLIENT_SECRET: getRequiredEnv('PAYPAL_CLIENT_SECRET'),
+  PAYPAL_MODE: getOptionalEnv('PAYPAL_MODE', 'sandbox') as Environment['PAYPAL_MODE'],
 };
 
 /**

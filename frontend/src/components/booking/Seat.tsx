@@ -30,7 +30,7 @@ interface SeatProps {
 const Seat: React.FC<SeatProps> = ({
   id,
   seatNumber,
-  row,
+  row: _row,
   column,
   status,
   seatType,
@@ -90,7 +90,8 @@ const Seat: React.FC<SeatProps> = ({
   const getCursor = (): string => {
     if (disabled || status === "booked" || isHeldByOther)
       return "cursor-not-allowed";
-    if (status === "available" || isSelected) return "cursor-pointer";
+    // Allow clicking on available seats, selected seats, and held seats (to release them)
+    if (status === "available" || isSelected || status === "held") return "cursor-pointer";
     return "cursor-default";
   };
 
@@ -99,6 +100,7 @@ const Seat: React.FC<SeatProps> = ({
   const isWheelchair = seatType === "wheelchair";
 
   // Handle click with validation
+  // Allow clicking on held seats (not by others) so user can release/re-select them
   const handleClick = (): void => {
     if (!disabled && status !== "booked" && !isHeldByOther && onClick) {
       onClick();

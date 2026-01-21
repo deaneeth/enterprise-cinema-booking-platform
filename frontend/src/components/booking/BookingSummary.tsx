@@ -149,14 +149,59 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
 
       {/* Hold Timer */}
       {holdTimeRemaining !== null && holdTimeRemaining !== undefined && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6">
-          <p className="text-xs font-medium text-yellow-900 mb-1">
-            ⏱️ Hold Timer
-          </p>
-          <p className="text-lg font-bold text-yellow-600">
+        <div
+          className={`rounded-lg p-4 mb-6 ${
+            holdTimeRemaining <= 60
+              ? "bg-red-50 border border-red-200"
+              : holdTimeRemaining <= 180
+                ? "bg-orange-50 border border-orange-200"
+                : "bg-emerald-50 border border-emerald-200"
+          }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <p
+              className={`text-xs font-semibold uppercase tracking-wide ${
+                holdTimeRemaining <= 60
+                  ? "text-red-700"
+                  : holdTimeRemaining <= 180
+                    ? "text-orange-700"
+                    : "text-emerald-700"
+              }`}
+            >
+              ⏱️ Hold Timer
+            </p>
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                holdTimeRemaining <= 60
+                  ? "bg-red-100 text-red-700"
+                  : holdTimeRemaining <= 180
+                    ? "bg-orange-100 text-orange-700"
+                    : "bg-emerald-100 text-emerald-700"
+              }`}
+            >
+              {holdTimeRemaining <= 60 ? "Hurry!" : "Active"}
+            </span>
+          </div>
+          <p
+            className={`text-2xl font-bold ${
+              holdTimeRemaining <= 60
+                ? "text-red-600"
+                : holdTimeRemaining <= 180
+                  ? "text-orange-600"
+                  : "text-emerald-600"
+            }`}
+          >
             {formatTime(holdTimeRemaining)}
           </p>
-          <p className="text-xs text-yellow-700 mt-1">
+          <p
+            className={`text-xs mt-1 ${
+              holdTimeRemaining <= 60
+                ? "text-red-600"
+                : holdTimeRemaining <= 180
+                  ? "text-orange-600"
+                  : "text-emerald-600"
+            }`}
+          >
             Seats held for this duration
           </p>
         </div>
@@ -334,11 +379,36 @@ const BookingSummary: React.FC<BookingSummaryProps> = ({
       </div>
 
       {/* Info */}
-      <div className="mt-6 bg-gray-50 rounded-lg p-3">
-        <p className="text-xs text-gray-600">
-          💡 <span className="font-medium">Tip:</span> Your seats will be held
-          for 10 minutes. Complete your payment within this time.
-        </p>
+      <div className="mt-6 space-y-3">
+        {/* Seat Hold Info */}
+        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+          <div className="flex items-start gap-2">
+            <span className="text-blue-500 text-sm">🔒</span>
+            <div>
+              <p className="text-xs font-medium text-blue-800">
+                Seats Reserved, Not Booked Yet
+              </p>
+              <p className="text-xs text-blue-600 mt-0.5">
+                Your selected seats are held for other customers. Feel free to
+                add or remove seats during this time.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Booking Creation Info */}
+        <div className="bg-gray-50 rounded-lg p-3">
+          <div className="flex items-start gap-2">
+            <span className="text-gray-500 text-sm">💡</span>
+            <div>
+              <p className="text-xs text-gray-600">
+                <span className="font-medium">Tip:</span> Your booking will be
+                created when you click "Proceed to Payment". Complete payment
+                within the timer to confirm your seats.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
