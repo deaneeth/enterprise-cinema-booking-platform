@@ -1,7 +1,7 @@
 // Payment.test.ts (Member 7 - Unit Tests)
 // Unit tests for Payment model methods and validation
 
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 
 // Mock mongoose before importing Payment model
 jest.mock('mongoose', () => {

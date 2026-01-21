@@ -185,7 +185,7 @@ describe('Booking Integration', () => {
         role: 'cinema_admin',
         cinemaId: cinema._id,
       });
-      const { user, token } = await createUserWithToken();
+      const { user: _user, token } = await createUserWithToken();
       const { showtime } = await createTestShowtime(adminToken, cinema._id);
       // Create actual seats for the showtime
       const seatIds = await createTestSeats(showtime._id, 2, showtime.price);

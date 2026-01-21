@@ -67,7 +67,7 @@ describe('Auth Endpoints', () => {
       });
 
       it('should register user with optional phone field omitted', async () => {
-        const { phone, ...userWithoutPhone } = validUserData;
+        const { phone: _phone, ...userWithoutPhone } = validUserData;
 
         const response = await request(app)
           .post('/api/auth/register')
@@ -92,7 +92,7 @@ describe('Auth Endpoints', () => {
 
     describe('Validation Error Cases', () => {
       it('should return 400 when email is missing', async () => {
-        const { email, ...userWithoutEmail } = validUserData;
+        const { email: _email, ...userWithoutEmail } = validUserData;
 
         const response = await request(app)
           .post('/api/auth/register')
@@ -104,7 +104,7 @@ describe('Auth Endpoints', () => {
       });
 
       it('should return 400 when password is missing', async () => {
-        const { password, ...userWithoutPassword } = validUserData;
+        const { password: _password, ...userWithoutPassword } = validUserData;
 
         const response = await request(app)
           .post('/api/auth/register')
@@ -146,7 +146,8 @@ describe('Auth Endpoints', () => {
       });
 
       it('should return 400 when firstName is missing', async () => {
-        const { firstName, ...userWithoutFirstName } = validUserData;
+        const { firstName: _firstName, ...userWithoutFirstName } =
+          validUserData;
 
         const response = await request(app)
           .post('/api/auth/register')
@@ -157,7 +158,7 @@ describe('Auth Endpoints', () => {
       });
 
       it('should return 400 when lastName is missing', async () => {
-        const { lastName, ...userWithoutLastName } = validUserData;
+        const { lastName: _lastName, ...userWithoutLastName } = validUserData;
 
         const response = await request(app)
           .post('/api/auth/register')
