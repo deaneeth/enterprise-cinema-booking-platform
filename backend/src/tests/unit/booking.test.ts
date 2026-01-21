@@ -214,7 +214,22 @@ describe('Booking Model', () => {
     });
 
     it('should generate different QR codes for different bookings', async () => {
-      const { user, showtime } = await createTestData();
+      const { user, showtime, cinema, movie } = await createTestData();
+
+      // Create a second showtime to avoid unique pending booking constraint
+      const futureTime2 = new Date(Date.now() + 48 * 60 * 60 * 1000); // 2 days from now
+      const showtime2 = await Showtime.create({
+        movieId: movie._id,
+        cinemaId: cinema._id,
+        screenNumber: 2,
+        startTime: futureTime2,
+        endTime: new Date(futureTime2.getTime() + 120 * 60 * 1000),
+        date: futureTime2,
+        price: 1000,
+        totalSeats: 100,
+        availableSeats: 100,
+        isActive: true,
+      });
 
       const booking1 = await Booking.create({
         userId: user._id,
@@ -226,7 +241,7 @@ describe('Booking Model', () => {
 
       const booking2 = await Booking.create({
         userId: user._id,
-        showtimeId: showtime._id,
+        showtimeId: showtime2._id,
         seatIds: [new mongoose.Types.ObjectId()],
         numberOfSeats: 1,
         totalAmount: 1000,
