@@ -45,14 +45,14 @@ const SeatMap: React.FC<SeatMapProps> = ({
   const { currentUser } = useAuth();
   const [seats, setSeats] = useState<SeatData[]>([]);
   const [seatsByRow, setSeatsByRow] = useState<{ [key: string]: SeatData[] }>(
-    {}
+    {},
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [holdTimer, setHoldTimer] = useState<number | null>(null);
+  const [_holdTimer, setHoldTimer] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [selectingUsers, setSelectingUsers] = useState<Map<string, string>>(
-    new Map()
+    new Map(),
   );
 
   // Fetch seats on component mount
@@ -73,8 +73,17 @@ const SeatMap: React.FC<SeatMapProps> = ({
 
         if (response.data.success && response.data.data) {
           const { allSeats, seats: groupedSeats } = response.data.data;
-          console.log('[SeatMap] Fetched seats:', allSeats.length, 'seats. Statuses:', 
-            allSeats.reduce((acc, s) => { acc[s.status] = (acc[s.status] || 0) + 1; return acc; }, {} as Record<string, number>)
+          console.log(
+            "[SeatMap] Fetched seats:",
+            allSeats.length,
+            "seats. Statuses:",
+            allSeats.reduce(
+              (acc, s) => {
+                acc[s.status] = (acc[s.status] || 0) + 1;
+                return acc;
+              },
+              {} as Record<string, number>,
+            ),
           );
           setSeats(allSeats);
           setSeatsByRow(groupedSeats);
@@ -82,10 +91,15 @@ const SeatMap: React.FC<SeatMapProps> = ({
           // Auto-restore seats held by current user on page load/refresh
           if (currentUser?.id && selectedSeats.length === 0) {
             const myHeldSeats = allSeats.filter(
-              (seat) => seat.status === "held" && seat.heldBy === currentUser.id
+              (seat) =>
+                seat.status === "held" && seat.heldBy === currentUser.id,
             );
             if (myHeldSeats.length > 0) {
-              console.log('[SeatMap] Restoring', myHeldSeats.length, 'held seats');
+              console.log(
+                "[SeatMap] Restoring",
+                myHeldSeats.length,
+                "held seats",
+              );
               myHeldSeats.forEach((seat) => onSeatSelect(seat));
             }
           }
@@ -111,10 +125,10 @@ const SeatMap: React.FC<SeatMapProps> = ({
       websocketClient?.connect();
     }
     websocketClient?.joinShowtime(showtimeId);
-    console.log('[SeatMap] Joined showtime room:', showtimeId);
+    console.log("[SeatMap] Joined showtime room:", showtimeId);
 
     const handleSeatUpdated = (data: any) => {
-      console.log('[SeatMap] Received seat:updated event:', data);
+      console.log("[SeatMap] Received seat:updated event:", data);
       // Update the specific seat that changed
       setSeats((prevSeats) =>
         prevSeats.map((seat) =>
@@ -125,8 +139,8 @@ const SeatMap: React.FC<SeatMapProps> = ({
                 heldBy: data.heldBy,
                 heldUntil: data.heldUntil,
               }
-            : seat
-        )
+            : seat,
+        ),
       );
       // Note: seatsByRow will auto-update via useEffect when seats changes
 
@@ -152,7 +166,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
     };
 
     const handleSeatsRefresh = () => {
-      console.log('[SeatMap] Received seats:refresh event - refetching seats');
+      console.log("[SeatMap] Received seats:refresh event - refetching seats");
       // Refetch all seats
       const fetchSeats = async () => {
         try {
@@ -167,8 +181,17 @@ const SeatMap: React.FC<SeatMapProps> = ({
 
           if (response.data.success && response.data.data) {
             const { allSeats, seats: groupedSeats } = response.data.data;
-            console.log('[SeatMap] Refreshed seats:', allSeats.length, 'seats. Statuses:', 
-              allSeats.reduce((acc, s) => { acc[s.status] = (acc[s.status] || 0) + 1; return acc; }, {} as Record<string, number>)
+            console.log(
+              "[SeatMap] Refreshed seats:",
+              allSeats.length,
+              "seats. Statuses:",
+              allSeats.reduce(
+                (acc, s) => {
+                  acc[s.status] = (acc[s.status] || 0) + 1;
+                  return acc;
+                },
+                {} as Record<string, number>,
+              ),
             );
             setSeats(allSeats);
             setSeatsByRow(groupedSeats);
@@ -256,20 +279,19 @@ const SeatMap: React.FC<SeatMapProps> = ({
                       heldBy: undefined,
                       heldUntil: undefined,
                     }
-                  : s
-              )
+                  : s,
+              ),
             );
             // Notify via WebSocket
             websocketClient?.releaseSeat(showtimeId, seat._id);
           } catch (err) {
             console.error(
               `Failed to auto-release seat ${seat.seatNumber}:`,
-              err
+              err,
             );
           }
         }
       }
-
     }, 1000);
 
     return () => clearInterval(interval);
@@ -351,7 +373,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
         const firstSeatHeldUntil = selectedSeats[0]?.heldUntil;
         const response = await api.put<{ success: boolean; data: SeatData }>(
           `/api/seats/${seat._id}/hold`,
-          firstSeatHeldUntil ? { heldUntil: firstSeatHeldUntil } : undefined
+          firstSeatHeldUntil ? { heldUntil: firstSeatHeldUntil } : undefined,
         );
 
         if (response.data.success) {
@@ -365,8 +387,9 @@ const SeatMap: React.FC<SeatMapProps> = ({
     }
   };
 
-  // Format time remaining
-  const formatTime = (seconds: number): string => {
+  // Format time remaining - kept for potential future use
+  // Timer is currently displayed in BookingSummary sidebar
+  const _formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${minutes}:${secs.toString().padStart(2, "0")}`;
@@ -474,7 +497,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
                   ?.sort((a, b) => a.column - b.column)
                   .map((seat) => {
                     const isSelected = selectedSeats.some(
-                      (s) => s._id === seat._id
+                      (s) => s._id === seat._id,
                     );
                     const isHeldByOther =
                       seat.status === "held" && seat.heldBy !== currentUser?.id;

@@ -30,7 +30,7 @@ interface SeatProps {
 const Seat: React.FC<SeatProps> = ({
   id,
   seatNumber,
-  row,
+  row: _row,
   column,
   status,
   seatType,
