@@ -2,6 +2,7 @@
 // PayPal Payment Service - Handles PayPal checkout integration
 // Uses @paypal/checkout-server-sdk for order creation, capture, and refunds
 
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="../types/paypal.d.ts" />
 import paypal from '@paypal/checkout-server-sdk';
 import { env } from '../config/environment';
