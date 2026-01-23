@@ -13,7 +13,7 @@ import Showtime from '../models/Showtime';
 const getDateRange = (period: string) => {
   const now = new Date();
   const end = new Date(now);
-  let start = new Date(now);
+  const start = new Date(now);
 
   switch (period) {
     case 'week':
@@ -210,7 +210,15 @@ export const getTopMovies = async (req: Request, res: Response) => {
     > = {};
 
     bookings.forEach((booking) => {
-      const showtime = booking.showtimeId as any;
+      interface PopulatedShowtime {
+        movieId?: {
+          _id?: { toString: () => string };
+          toString: () => string;
+          title?: string;
+          posterUrl?: string;
+        };
+      }
+      const showtime = booking.showtimeId as PopulatedShowtime;
       if (showtime?.movieId) {
         const movie = showtime.movieId;
         const movieId = movie._id?.toString() || movie.toString();

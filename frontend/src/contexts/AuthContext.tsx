@@ -15,6 +15,7 @@ export interface User {
   lastName: string;
   phone?: string;
   role: "user" | "cinema_admin" | "platform_admin";
+  cinemaId?: string;
   isActive: boolean;
   createdAt?: string;
 }
@@ -98,7 +99,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await authApi.login(email, password);
 
-      if (response.data.success && response.data.data?.token && response.data.data?.user) {
+      if (
+        response.data.success &&
+        response.data.data?.token &&
+        response.data.data?.user
+      ) {
         localStorage.setItem("token", response.data.data.token);
         setCurrentUser(response.data.data.user);
       } else {
@@ -117,7 +122,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await authApi.register(userData);
 
-      if (response.data.success && response.data.data?.token && response.data.data?.user) {
+      if (
+        response.data.success &&
+        response.data.data?.token &&
+        response.data.data?.user
+      ) {
         localStorage.setItem("token", response.data.data.token);
         setCurrentUser(response.data.data.user);
       } else {

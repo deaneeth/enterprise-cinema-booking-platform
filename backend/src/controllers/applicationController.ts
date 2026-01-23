@@ -20,7 +20,7 @@ export const applyCinemaAdmin = async (req: Request, res: Response) => {
       });
     }
 
-    const userId = (req as any).user?.id;
+    const userId = (req as { user?: { id?: string } }).user?.id;
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -84,7 +84,7 @@ export const listApplications = async (req: Request, res: Response) => {
   try {
     const { status } = req.query;
 
-    const filter: any = {};
+    const filter: { applicationStatus?: string | { $ne: string } } = {};
     if (status === 'pending') {
       filter.applicationStatus = 'pending';
     } else if (status === 'all') {
@@ -129,7 +129,7 @@ export const approveApplication = async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const { cinemaId, createCinema } = req.body;
-    const reviewerId = (req as any).user?.id;
+    const reviewerId = (req as { user?: { id?: string } }).user?.id;
 
     if (!mongoose.isValidObjectId(userId)) {
       return res.status(400).json({
@@ -210,7 +210,7 @@ export const rejectApplication = async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const { reason } = req.body;
-    const reviewerId = (req as any).user?.id;
+    const reviewerId = (req as { user?: { id?: string } }).user?.id;
 
     if (!mongoose.isValidObjectId(userId)) {
       return res.status(400).json({
@@ -266,7 +266,7 @@ export const rejectApplication = async (req: Request, res: Response) => {
 // Get current user's application status
 export const getMyApplication = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as { user?: { id?: string } }).user?.id;
     const user = await User.findById(userId).select(
       'applicationStatus applicationDetails role'
     );
