@@ -4,7 +4,6 @@
 
 import mongoose, { Document, Schema } from 'mongoose';
 
-
 // Allowed values - exported for reuse in controller
 export const GENRES = [
   'Action',
@@ -45,6 +44,8 @@ export interface IMovie extends Document {
   cast: string[];
   director?: string;
   isActive: boolean;
+  averageRating: number; // User review average (1-5)
+  totalReviews: number; // Total number of user reviews
   createdAt: Date;
   updatedAt: Date;
   formatDuration(): string;
@@ -100,6 +101,17 @@ const MovieSchema: Schema<IMovie> = new Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    averageRating: {
+      type: Number,
+      default: 0,
+      min: [0, 'Average rating must be >= 0'],
+      max: [5, 'Average rating must be <= 5'],
+    },
+    totalReviews: {
+      type: Number,
+      default: 0,
+      min: [0, 'Total reviews must be >= 0'],
     },
   },
   {
