@@ -16,6 +16,16 @@ export interface IUser extends Document {
   role: 'user' | 'cinema_admin' | 'platform_admin';
   cinemaId?: mongoose.Types.ObjectId;
   isActive: boolean;
+  applicationStatus?: 'none' | 'pending' | 'approved' | 'rejected';
+  applicationDetails?: {
+    businessName?: string;
+    businessAddress?: string;
+    businessLicense?: string;
+    appliedAt?: Date;
+    reviewedAt?: Date;
+    reviewedBy?: string;
+    rejectionReason?: string;
+  };
   resetPasswordToken?: string;
   resetPasswordExpire?: Date;
   createdAt: Date;
@@ -73,6 +83,15 @@ const UserSchema: Schema<IUser> = new Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    applicationStatus: {
+      type: String,
+      enum: ['none', 'pending', 'approved', 'rejected'],
+      default: 'none',
+    },
+    applicationDetails: {
+      type: Schema.Types.Mixed,
+      default: null,
     },
     resetPasswordToken: {
       type: String,
