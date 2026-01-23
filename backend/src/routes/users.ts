@@ -16,6 +16,7 @@ import {
   forgotPassword,
   resetPassword,
 } from '../controllers/userController';
+import { getUserReviews } from '../controllers/reviewController';
 import { authenticate, requireRole } from '../middlewares/auth';
 
 const router = Router();
@@ -90,6 +91,13 @@ router.put('/users/:id', authenticate, updateProfile);
  * @access  Private (Owner only)
  */
 router.put('/users/:id/change-password', authenticate, changePassword);
+
+/**
+ * @route   GET /api/users/:id/reviews
+ * @desc    Get all reviews by a specific user (for profile page)
+ * @access  Private (Owner or Admin)
+ */
+router.get('/users/:id/reviews', authenticate, getUserReviews);
 
 /**
  * @route   DELETE /api/users/:id

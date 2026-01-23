@@ -11,6 +11,7 @@ import {
   searchCinemas,
   updateCinema,
 } from '../controllers/cinemaController';
+import { getCinemaReviews } from '../controllers/reviewController';
 import { authenticate, requireRole } from '../middlewares/auth';
 
 const router = Router();
@@ -39,6 +40,13 @@ router.get('/cinemas/search', searchCinemas);
  * @access  Public
  */
 router.get('/cinemas/:id', getCinemaById);
+
+/**
+ * @route   GET /api/cinemas/:id/reviews
+ * @desc    Get all reviews for a cinema
+ * @access  Public
+ */
+router.get('/cinemas/:id/reviews', getCinemaReviews);
 
 // ============================================
 // PROTECTED ROUTES
