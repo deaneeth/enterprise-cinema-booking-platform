@@ -7,8 +7,10 @@ import mongoose from 'mongoose';
 import Booking, { BookingDocument } from '../models/Booking';
 import Showtime from '../models/Showtime';
 import websocketService from '../services/websocket';
+import auditService from '../services/audit';
 // Import to ensure Express Request type is extended with user property
 import '../middlewares/auth';
+import seatCleanupService from '../services/seatCleanup';
 
 /* =======================
   Helper Functions
@@ -127,6 +129,26 @@ export const createBooking = async (req: Request, res: Response) => {
       });
     }
 
+    // Check for existing pending booking for this user and showtime
+    // Prevents creating duplicate bookings
+    const existingPendingBooking = await Booking.findOne({
+      userId: new mongoose.Types.ObjectId(userId),
+      showtimeId: new mongoose.Types.ObjectId(showtimeId),
+      bookingStatus: 'pending',
+      expiresAt: { $gt: new Date() }, // Not expired
+    });
+
+    if (existingPendingBooking) {
+      return res.status(409).json({
+        success: false,
+        error: {
+          message: 'You already have a pending booking for this showtime',
+          code: 'EXISTING_PENDING_BOOKING',
+          existingBookingId: existingPendingBooking._id,
+        },
+      });
+    }
+
     // Check if enough seats are available
     if (showtime.availableSeats < seatIds.length) {
       return res.status(400).json({
@@ -152,8 +174,27 @@ export const createBooking = async (req: Request, res: Response) => {
         });
       }
 
+      // Check for truly unavailable seats (booked, or held by ANOTHER user AND not expired)
+      const now = new Date();
       const unavailableSeats = seats.filter(
-        (seat: { status: string }) => seat.status !== 'available'
+        (seat: {
+          status: string;
+          heldUntil?: Date;
+          heldBy?: { toString: () => string } | string;
+        }) => {
+          // 'booked' seats are always unavailable
+          if (seat.status === 'booked') return true;
+          // 'held' seats are unavailable only if held by another user and not expired
+          if (seat.status === 'held') {
+            const seatHeldBy = seat.heldBy?.toString();
+            // If held by the same user trying to book, it's available for them
+            if (seatHeldBy === userId) return false;
+            // If held by another user and not expired, it's unavailable
+            return seat.heldUntil && new Date(seat.heldUntil) > now;
+          }
+          // 'available' seats are available
+          return false;
+        }
       );
       if (unavailableSeats.length > 0) {
         return res.status(400).json({
@@ -162,21 +203,82 @@ export const createBooking = async (req: Request, res: Response) => {
         });
       }
 
-      // Update seats to 'held' status
+      // Release any expired holds before updating to 'held'
       await Seat.updateMany(
-        { _id: { $in: seatIds } },
         {
+          _id: { $in: seatIds },
           status: 'held',
-          heldBy: userId,
-          heldUntil: new Date(Date.now() + SEAT_HOLD_DURATION_MS),
+          heldUntil: { $lt: now },
+        },
+        {
+          $set: {
+            status: 'available',
+            heldBy: null,
+            heldUntil: null,
+          },
         }
       );
     }
 
-    // Calculate total amount
-    const totalAmount = showtime.price * seatIds.length;
+    // Get the earliest heldUntil from seats to preserve remaining time
+    // This prevents timer from resetting when user proceeds to payment
+    let expiresAt = new Date(Date.now() + SEAT_HOLD_DURATION_MS);
+    const currentTime = new Date();
+    if (Seat) {
+      const heldSeats = await Seat.find({
+        _id: { $in: seatIds },
+        status: 'held',
+        heldBy: userId,
+        heldUntil: { $gt: currentTime },
+      }).select('heldUntil');
 
-    // Create booking
+      if (heldSeats.length > 0) {
+        // Use the earliest expiry to preserve remaining time
+        const earliestExpiry = heldSeats.reduce(
+          (earliest: Date, seat: { heldUntil?: Date }) => {
+            if (seat.heldUntil && seat.heldUntil < earliest) {
+              return seat.heldUntil;
+            }
+            return earliest;
+          },
+          heldSeats[0].heldUntil || expiresAt
+        );
+        expiresAt = earliestExpiry;
+        console.log(
+          `[Booking] Using seat heldUntil for booking expiry: ${expiresAt.toISOString()}`
+        );
+      }
+    }
+
+    // Update seats with booking's expiresAt (if Seat model available)
+    if (Seat) {
+      await Seat.updateMany(
+        { _id: { $in: seatIds } },
+        {
+          $set: {
+            status: 'held',
+            heldBy: userId,
+            heldUntil: expiresAt, // Synced to booking's expiresAt
+          },
+        }
+      );
+    }
+
+    // Calculate total amount from actual seat prices
+    let totalAmount = 0;
+    if (Seat) {
+      const seatDocs = await Seat.find({ _id: { $in: seatIds } });
+      totalAmount = seatDocs.reduce(
+        (sum: number, seat: { price?: number }) =>
+          sum + (seat.price || showtime.price),
+        0
+      );
+    } else {
+      // Fallback to showtime price if Seat model not available
+      totalAmount = showtime.price * seatIds.length;
+    }
+
+    // Create booking with expiresAt (single source of truth)
     const booking = await Booking.create({
       userId: new mongoose.Types.ObjectId(userId),
       showtimeId: new mongoose.Types.ObjectId(showtimeId),
@@ -185,6 +287,15 @@ export const createBooking = async (req: Request, res: Response) => {
       totalAmount,
       bookingStatus: 'pending',
       bookingDate: new Date(),
+      expiresAt, // Single source of truth for timer
+    });
+
+    console.log('[Booking] Created:', {
+      bookingId: booking._id,
+      seatIdsReceived: seatIds.length,
+      seatIdsStored: booking.seatIds.length,
+      numberOfSeats: booking.numberOfSeats,
+      totalAmount: booking.totalAmount,
     });
 
     // Emit WebSocket event for seat updates
@@ -195,6 +306,21 @@ export const createBooking = async (req: Request, res: Response) => {
         heldBy: userId,
       });
     }
+
+    // Audit: Log hold creation and seat hold events
+    auditService.logHoldCreated({
+      bookingId: booking._id.toString(),
+      showtimeId,
+      seatIds: seatIds.map((id: string) => id),
+      userId,
+      expiresAt,
+    });
+    auditService.logSeatsHeld({
+      bookingId: booking._id.toString(),
+      showtimeId,
+      seatIds: seatIds.map((id: string) => id),
+      userId,
+    });
 
     // Populate the booking
     const populatedBooking = await Booking.findById(booking._id)
@@ -211,7 +337,7 @@ export const createBooking = async (req: Request, res: Response) => {
       success: true,
       data: {
         booking: populatedBooking,
-        holdExpiresAt: new Date(Date.now() + SEAT_HOLD_DURATION_MS),
+        expiresAt, // Single source of truth - same as booking.expiresAt
         message: `Seats held for 10 minutes. Complete payment to confirm booking.`,
       },
     });
@@ -228,13 +354,69 @@ export const createBooking = async (req: Request, res: Response) => {
   2. Confirm Booking
 ======================= */
 
-/**
- * Confirm a booking after payment succeeds
- * - Updates booking status to 'confirmed'
- * - Updates seats from 'held' to 'booked'
- * - Updates showtime availableSeats count
- * - Generates QR code
- */
+const executeBookingConfirmationTransaction = async (
+  bookingId: mongoose.Types.ObjectId,
+  paymentId: mongoose.Types.ObjectId | null
+): Promise<{
+  booking: BookingDocument;
+  seatIds: mongoose.Types.ObjectId[];
+}> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      bookingStatus: 'pending',
+      expiresAt: { $gt: new Date() },
+    }).session(session);
+
+    if (!booking) {
+      throw new Error('Booking no longer valid for confirmation');
+    }
+
+    booking.bookingStatus = 'confirmed';
+    if (paymentId) {
+      booking.paymentId = paymentId;
+    }
+    booking.generateQRCode();
+    await booking.save({ session });
+
+    const Seat = getSeatModel();
+    const seatIds = booking.seatIds.map((id: mongoose.Types.ObjectId) => id);
+
+    if (Seat && seatIds.length > 0) {
+      await Seat.updateMany(
+        { _id: { $in: seatIds }, status: 'held' },
+        {
+          $set: {
+            status: 'booked',
+            bookingId: booking._id,
+            heldBy: null,
+            heldUntil: null,
+          },
+        },
+        { session }
+      );
+    }
+
+    await Showtime.findByIdAndUpdate(
+      booking.showtimeId,
+      { $inc: { availableSeats: -booking.numberOfSeats } },
+      { session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return { booking, seatIds };
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
+  }
+};
+
 export const confirmBooking = async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
@@ -255,8 +437,7 @@ export const confirmBooking = async (req: Request, res: Response) => {
       });
     }
 
-    // Find booking
-    const booking = (await Booking.findById(id)) as BookingDocument | null;
+    const booking = await Booking.findById(id);
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -264,7 +445,6 @@ export const confirmBooking = async (req: Request, res: Response) => {
       });
     }
 
-    // Check ownership (user or admin)
     if (booking.userId.toString() !== userId && !isAdmin(req)) {
       return res.status(403).json({
         success: false,
@@ -272,7 +452,6 @@ export const confirmBooking = async (req: Request, res: Response) => {
       });
     }
 
-    // Check booking status
     if (booking.bookingStatus === 'confirmed') {
       return res.status(400).json({
         success: false,
@@ -280,79 +459,80 @@ export const confirmBooking = async (req: Request, res: Response) => {
       });
     }
 
-    if (booking.bookingStatus === 'cancelled') {
+    if (
+      booking.bookingStatus === 'cancelled' ||
+      booking.bookingStatus === 'expired'
+    ) {
       return res.status(400).json({
         success: false,
-        error: { message: 'Cannot confirm a cancelled booking' },
+        error: { message: `Cannot confirm a ${booking.bookingStatus} booking` },
       });
     }
 
-    // Update booking
-    booking.bookingStatus = 'confirmed';
-    if (paymentId && mongoose.isValidObjectId(paymentId)) {
-      booking.paymentId = new mongoose.Types.ObjectId(paymentId);
-    }
+    const parsedPaymentId =
+      paymentId && mongoose.isValidObjectId(paymentId)
+        ? new mongoose.Types.ObjectId(paymentId)
+        : null;
 
-    // Generate QR code
-    const qrCode = booking.generateQRCode();
-    booking.qrCode = qrCode;
+    let txResult;
+    let retryCount = 0;
+    const maxRetries = 1;
 
-    await booking.save();
-
-    // Update seats to 'booked' status
-    const Seat = getSeatModel();
-    if (Seat) {
-      await Seat.updateMany(
-        { _id: { $in: booking.seatIds } },
-        {
-          status: 'booked',
-          bookingId: booking._id,
-          heldBy: null,
-          heldUntil: null,
+    while (retryCount <= maxRetries) {
+      try {
+        txResult = await executeBookingConfirmationTransaction(
+          booking._id as mongoose.Types.ObjectId,
+          parsedPaymentId
+        );
+        break;
+      } catch (txError: unknown) {
+        const err = txError as {
+          hasErrorLabel?: (label: string) => boolean;
+          message?: string;
+        };
+        const isTransient =
+          err.hasErrorLabel?.('TransientTransactionError') ||
+          err.message?.includes('TransientTransactionError');
+        if (isTransient && retryCount < maxRetries) {
+          retryCount++;
+          continue;
         }
-      );
+        console.error('Booking confirmation transaction failed:', txError);
+        return res.status(500).json({
+          success: false,
+          error: { message: 'Failed to confirm booking' },
+        });
+      }
     }
 
-    // Update showtime available seats
-    await Showtime.findByIdAndUpdate(booking.showtimeId, {
-      $inc: { availableSeats: -booking.numberOfSeats },
-    });
+    const showtimeId = txResult!.booking.showtimeId.toString();
 
-    // Emit WebSocket events
-    const showtimeId = booking.showtimeId.toString();
-
-    // Notify about seat status change
-    for (const seatId of booking.seatIds) {
+    for (const seatId of txResult!.seatIds) {
       websocketService.broadcastSeatUpdate(showtimeId, {
         seatId: seatId.toString(),
         status: 'booked',
       });
     }
 
-    // Broadcast booking confirmation
     websocketService.broadcastBookingConfirmed(showtimeId, {
-      bookingId: booking._id.toString(),
-      numberOfSeats: booking.numberOfSeats,
+      bookingId: txResult!.booking._id.toString(),
+      numberOfSeats: txResult!.booking.numberOfSeats,
     });
 
-    // Get showtime with cinema for admin notification
-    const showtime = await Showtime.findById(booking.showtimeId);
+    const showtime = await Showtime.findById(txResult!.booking.showtimeId);
     if (showtime) {
       websocketService.notifyCinemaAdmin(showtime.cinemaId.toString(), {
-        bookingId: booking._id.toString(),
-        userId: booking.userId.toString(),
-        numberOfSeats: booking.numberOfSeats,
-        totalAmount: booking.totalAmount,
+        bookingId: txResult!.booking._id.toString(),
+        userId: txResult!.booking.userId.toString(),
+        numberOfSeats: txResult!.booking.numberOfSeats,
+        totalAmount: txResult!.booking.totalAmount,
       });
-
-      // Broadcast showtime update
       websocketService.broadcastShowtimeUpdated(showtimeId, {
-        availableSeats: showtime.availableSeats - booking.numberOfSeats,
+        availableSeats: showtime.availableSeats,
       });
     }
 
-    // Populate and return
-    const populatedBooking = await Booking.findById(booking._id)
+    const populatedBooking = await Booking.findById(txResult!.booking._id)
       .populate('userId', 'firstName lastName email')
       .populate({
         path: 'showtimeId',
@@ -408,8 +588,8 @@ export const getBookingById = async (req: Request, res: Response) => {
 
     const booking = await Booking.findById(id)
       .populate('userId', 'firstName lastName email phone')
-      // Note: seatIds are stored as ObjectId array, no Seat model needed for basic functionality
-      // Note: paymentId population skipped - Payment model is a placeholder
+      .populate('seatIds', 'seatNumber row column seatType price status')
+      .populate('paymentId')
       .populate({
         path: 'showtimeId',
         populate: [
@@ -424,6 +604,24 @@ export const getBookingById = async (req: Request, res: Response) => {
         error: { message: 'Booking not found' },
       });
     }
+
+    // Debug: Log seat info to diagnose missing seats issue
+    console.log('[Booking] GetById:', {
+      bookingId: booking._id,
+      numberOfSeats: booking.numberOfSeats,
+      seatIdsPopulated: Array.isArray(booking.seatIds)
+        ? booking.seatIds.length
+        : 'not array',
+      seatNumbers: Array.isArray(booking.seatIds)
+        ? (booking.seatIds as Array<{ seatNumber?: string }>).map(
+            (s) => s?.seatNumber || 'unknown'
+          )
+        : 'N/A',
+    });
+
+    // Lazy Read: Check and expire if pending booking has expired
+    // The helper returns the updated booking (modified in place)
+    await seatCleanupService.checkAndExpireBooking(booking);
 
     // Check ownership - handle both populated and non-populated userId
     const bookingUserId =
@@ -443,12 +641,184 @@ export const getBookingById = async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: booking,
+      serverTime: new Date().toISOString(),
     });
   } catch (error) {
     console.error('Error fetching booking:', error);
     res.status(500).json({
       success: false,
       error: { message: 'Failed to fetch booking' },
+    });
+  }
+};
+
+/* =======================
+  4. Update Booking Seats
+======================= */
+
+/**
+ * Update booking seats (pending only)
+ * - Does NOT extend expiresAt
+ * - Recalculates total amount
+ */
+export const updateBookingSeats = async (req: Request, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: { message: 'Authentication required' },
+      });
+    }
+
+    const { id } = req.params;
+    const { seatIds } = req.body as { seatIds?: string[] };
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Invalid booking ID' },
+      });
+    }
+
+    if (!seatIds || !Array.isArray(seatIds) || seatIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'At least one seat must be selected' },
+      });
+    }
+
+    for (const seatId of seatIds) {
+      if (!mongoose.isValidObjectId(seatId)) {
+        return res.status(400).json({
+          success: false,
+          error: { message: `Invalid seat ID: ${seatId}` },
+        });
+      }
+    }
+
+    const booking = (await Booking.findById(id)) as BookingDocument | null;
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        error: { message: 'Booking not found' },
+      });
+    }
+
+    if (booking.userId.toString() !== userId && !isAdmin(req)) {
+      return res.status(403).json({
+        success: false,
+        error: { message: 'Not authorized to update this booking' },
+      });
+    }
+
+    if (booking.bookingStatus !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Only pending bookings can be updated' },
+      });
+    }
+
+    if (booking.expiresAt && booking.expiresAt.getTime() <= Date.now()) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Booking hold has expired' },
+      });
+    }
+
+    const Seat = getSeatModel();
+    if (Seat) {
+      const seats = await Seat.find({
+        _id: { $in: seatIds },
+        showtimeId: booking.showtimeId,
+      });
+
+      if (seats.length !== seatIds.length) {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'One or more seats not found for this showtime' },
+        });
+      }
+
+      const now = new Date();
+      const unavailableSeats = seats.filter(
+        (seat: {
+          status: string;
+          heldUntil?: Date;
+          heldBy?: { toString: () => string } | string;
+        }) => {
+          if (seat.status === 'booked') return true;
+          if (seat.status === 'held') {
+            const seatHeldBy = seat.heldBy?.toString();
+            if (seatHeldBy === userId) return false;
+            return seat.heldUntil && new Date(seat.heldUntil) > now;
+          }
+          return false;
+        }
+      );
+
+      if (unavailableSeats.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'One or more selected seats are not available' },
+        });
+      }
+
+      // Align heldUntil to booking.expiresAt without extending it
+      if (booking.expiresAt) {
+        await Seat.updateMany(
+          { _id: { $in: seatIds } },
+          {
+            $set: {
+              status: 'held',
+              heldBy: userId,
+              heldUntil: booking.expiresAt,
+            },
+          }
+        );
+      }
+    }
+
+    // Recalculate total amount
+    let totalAmount = 0;
+    if (Seat) {
+      const seatDocs = await Seat.find({ _id: { $in: seatIds } });
+      totalAmount = seatDocs.reduce(
+        (sum: number, seat: { price?: number }) => sum + (seat.price || 0),
+        0
+      );
+    } else {
+      const showtime = await Showtime.findById(booking.showtimeId);
+      totalAmount = showtime ? showtime.price * seatIds.length : 0;
+    }
+
+    booking.seatIds = seatIds.map(
+      (id: string) => new mongoose.Types.ObjectId(id)
+    );
+    booking.numberOfSeats = seatIds.length;
+    booking.totalAmount = totalAmount;
+
+    await booking.save();
+
+    const populatedBooking = await Booking.findById(booking._id)
+      .populate('userId', 'firstName lastName email')
+      .populate({
+        path: 'showtimeId',
+        populate: [
+          { path: 'movieId', select: 'title posterUrl duration' },
+          { path: 'cinemaId', select: 'name location' },
+        ],
+      });
+
+    res.status(200).json({
+      success: true,
+      data: populatedBooking,
+    });
+  } catch (error) {
+    console.error('Error updating booking seats:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to update booking seats' },
     });
   }
 };
@@ -509,6 +879,13 @@ export const getUserBookings = async (req: Request, res: Response) => {
       .sort({ bookingDate: -1 })
       .skip(skip)
       .limit(limitNum);
+
+    // Lazy Read: Check and expire pending bookings
+    await Promise.all(
+      bookings.map((booking) =>
+        seatCleanupService.checkAndExpireBooking(booking)
+      )
+    );
 
     res.json({
       success: true,
@@ -608,10 +985,12 @@ export const cancelBooking = async (req: Request, res: Response) => {
       await Seat.updateMany(
         { _id: { $in: booking.seatIds } },
         {
-          status: 'available',
-          heldBy: null,
-          heldUntil: null,
-          bookingId: null,
+          $set: {
+            status: 'available',
+            heldBy: null,
+            heldUntil: null,
+            bookingId: null,
+          },
         }
       );
     }
@@ -633,6 +1012,15 @@ export const cancelBooking = async (req: Request, res: Response) => {
 
     // Broadcast seats refresh
     websocketService.broadcastSeatsRefresh(showtimeId);
+
+    // Audit: Log booking cancellation
+    auditService.logBookingCancelled({
+      bookingId: booking._id.toString(),
+      showtimeId,
+      seatIds: booking.seatIds.map((id) => id.toString()),
+      userId,
+      trigger: 'user_action',
+    });
 
     // Populate and return
     const populatedBooking = await Booking.findById(booking._id)
@@ -758,6 +1146,13 @@ export const getAllBookings = async (req: Request, res: Response) => {
       .skip(skip)
       .limit(limitNum);
 
+    // Lazy Read: Check and expire pending bookings
+    await Promise.all(
+      bookings.map((booking) =>
+        seatCleanupService.checkAndExpireBooking(booking)
+      )
+    );
+
     res.json({
       success: true,
       data: bookings,
@@ -781,6 +1176,7 @@ export default {
   createBooking,
   confirmBooking,
   getBookingById,
+  updateBookingSeats,
   getUserBookings,
   cancelBooking,
   getAllBookings,

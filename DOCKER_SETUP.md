@@ -59,6 +59,9 @@ docker-compose down
 
 ### Rebuild After Code Changes
 
+at what times do we need to rebuild the docker containers? 
+when we make changes to the code we need to rebuild the docker containers to apply the changes to the containers
+
 ```bash
 docker-compose up -d --build
 ```

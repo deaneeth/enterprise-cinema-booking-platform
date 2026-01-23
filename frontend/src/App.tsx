@@ -49,6 +49,9 @@ import Profile from "./pages/Profile";
 import Booking from "./pages/Booking";
 import { BookingProvider } from "./contexts/BookingContext";
 
+// Member 7 (Payments): Payment page route import
+import Payment from "./pages/Payment";
+
 // =============================================================================
 
 // Member 2 (Cinemas): Cinemas page route import
@@ -128,8 +131,15 @@ const AppRouter: React.FC = () => {
             }
           />
 
-          {/* TODO: Member 7 (Payments) - Add payment routes */}
-          {/* <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} /> */}
+          {/* Member 7 (Payments) - Payment route */}
+          <Route
+            path="/payment/:bookingId"
+            element={
+              <ProtectedRoute>
+                <Payment />
+              </ProtectedRoute>
+            }
+          />
 
           {/* ============================================================= */}
           {/* ADMIN ROUTES - Admin role required */}

@@ -47,6 +47,19 @@ router.get('/showtimes/:id', getShowtimeById);
  */
 router.get('/cinemas/:cinemaId/showtimes', getShowtimesByCinema);
 
+/**
+ * @route   GET /api/showtimes/:showtimeId/seats
+ * @desc    Get all seats for a showtime (grouped by row)
+ * @access  Public
+ * @note    This route delegates to the SeatController for API consistency
+ */
+router.get('/showtimes/:showtimeId/seats', (req, res) => {
+  // Forward to seat controller
+  import('../controllers/seatController').then((module) => {
+    module.default.getSeatsForShowtime(req, res);
+  });
+});
+
 // ============================================
 // PROTECTED ROUTES (Cinema Admin)
 // ============================================
