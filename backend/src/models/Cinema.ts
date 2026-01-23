@@ -25,6 +25,8 @@ export interface ICinema extends Document {
   adminUserId?: mongoose.Types.ObjectId;
   screens?: number;
   isActive: boolean;
+  averageRating: number; // User review average (1-5)
+  totalReviews: number; // Total number of user reviews
   createdAt: Date;
   updatedAt: Date;
   calculateDistance(lat: number, lng: number): number;
@@ -82,6 +84,17 @@ const CinemaSchema: Schema<ICinema> = new Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    averageRating: {
+      type: Number,
+      default: 0,
+      min: [0, 'Average rating must be >= 0'],
+      max: [5, 'Average rating must be <= 5'],
+    },
+    totalReviews: {
+      type: Number,
+      default: 0,
+      min: [0, 'Total reviews must be >= 0'],
     },
   },
   {

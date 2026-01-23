@@ -9,10 +9,10 @@ import {
   getAllMovies,
   getMovieById,
   getMovieShowtimes,
-  getMovieReviews,
   searchMovies,
   updateMovie,
 } from '../controllers/movieController';
+import { getMovieReviews } from '../controllers/reviewController';
 import { authenticate, requireRole } from '../middlewares/auth';
 
 const router = Router();
