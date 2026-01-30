@@ -38,7 +38,7 @@
 ## 📸 Screenshots
 
 <p align="center">
-  <img src="docs/assets/screenshots/home.png" alt="Home Page" width="100%" />
+  <video controls src="docs/assets/videos/home.mp4" alt="Home Page" width="100%" autoplay loop muted playsinline />
 </p>
 
 <details>
@@ -48,6 +48,7 @@
 
 | Page                     | Screenshot                                                 |
 | ------------------------ | ---------------------------------------------------------- |
+| **Home**        | ![Home](docs/assets/screenshots/home.png)              |
 | **Movie Listing**        | ![Movies](docs/assets/screenshots/movies.png)              |
 | **Movie Details**        | ![Movie Details](docs/assets/screenshots/movie-detail.png) |
 | **Seat Selection**       | ![Seat Selection](docs/assets/screenshots/seats.png)       |
