@@ -39,17 +39,14 @@ jobs:
       - name: Run unit tests
         working-directory: ./backend
         run: npm run test:unit
-        continue-on-error: true
 
       - name: Run integration tests
         working-directory: ./backend
         run: npm run test:integration
-        continue-on-error: true
 
       - name: Generate coverage report
         working-directory: ./backend
         run: npm run test:coverage
-        continue-on-error: true
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -57,7 +54,6 @@ jobs:
           files: ./backend/coverage/coverage-final.json
           flags: backend
           name: backend-coverage
-        continue-on-error: true
 
   # Frontend Linting and Tests
   frontend-test:
@@ -82,7 +78,6 @@ jobs:
       - name: Run ESLint
         working-directory: ./frontend
         run: npm run lint
-        continue-on-error: true
 
       - name: Build frontend
         working-directory: ./frontend
@@ -91,7 +86,6 @@ jobs:
       - name: Run frontend tests
         working-directory: ./frontend
         run: npm test -- --coverage --watchAll=false
-        continue-on-error: true
 
   # Build Check
   build-check:
