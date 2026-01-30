@@ -37,11 +37,14 @@
       "react-app"
     ],
     "rules": {
-      "@typescript-eslint/no-unused-vars": ["warn", {
-        "argsIgnorePattern": "^_",
-        "varsIgnorePattern": "^_",
-        "destructuredArrayIgnorePattern": "^_"
-      }]
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          "argsIgnorePattern": "^_",
+          "varsIgnorePattern": "^_",
+          "destructuredArrayIgnorePattern": "^_"
+        }
+      ]
     }
   },
   "browserslist": {
@@ -75,7 +78,7 @@
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.32",
     "prettier": "^3.1.1",
-    "react-scripts": "5.0.1",
+    "react-scripts": "^0.0.0",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.3.3"
   },
