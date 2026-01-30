@@ -38,7 +38,7 @@
 ## 📸 Screenshots
 
 <p align="center">
-  <video controls src="docs/assets/videos/home.mp4" alt="Home Page" width="100%" autoplay loop muted playsinline />
+  <img src="docs/assets/screenshots/home.gif" alt="Home Page" width="100%" />
 </p>
 
 <details>
