@@ -1,4 +1,0 @@
-# cd.yml
-# Continuous Deployment workflow - Automates deployment process
-# Deploys the application to production/staging environments after successful builds
-# This workflow handles automated deployment and release management
